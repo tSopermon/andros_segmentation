@@ -5,6 +5,14 @@ The Andros Segmentation project is a modular, reproducible pipeline for multicla
 
 ---
 
+## Processing Architecture
+
+### Containerization
+The system is designed to run in a containerized Docker environment for consistent behavior across development and production:
+- **Base Image:** Official `pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime` for GPU support.
+- **Orchestration:** `docker-compose` simplifies volume mounting (dataset, config, outputs) and service management.
+- **Portability:** Configuration via `.env` files and environment variables ensures the code runs on any machine with Docker + NVIDIA GPU support.
+
 ## Project Structure
 - **config/**: YAML configuration files for hyperparameters, paths, and model settings.
 - **utils/**: Data loading (`dataset.py`), augmentations (`transforms.py`), and configuration parsing (`config_loader.py`).

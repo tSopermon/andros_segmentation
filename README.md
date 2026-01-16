@@ -64,78 +64,41 @@ Note: `requirements.txt` now includes `torchvision`. The `encoding` package is o
 
 ### Option 2: Docker Installation (Recommended for Production)
 
-Docker provides a containerized environment with all dependencies pre-configured, ensuring consistency across different systems.
+Docker provides a containerized environment with all dependencies pre-configured.
 
 #### Prerequisites
-- Docker installed ([installation guide](https://docs.docker.com/get-docker/))
-- NVIDIA Docker runtime for GPU support ([installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
-- At least 10GB free disk space for the Docker image
+- Docker and Docker Compose installed.
+- NVIDIA Container Toolkit for GPU support.
 
-#### Quick Start with Docker
+#### Quick Start with Docker Compose
 
-1. **Build the Docker image:**
-   ```bash
-   ./docker-run.sh build
-   ```
-   Or manually:
-   ```bash
-   docker build -t andros-segmentation:latest .
-   ```
+1.  **Configure Environment:**
+    Copy the example environment file and set your dataset path:
+    ```bash
+    cp .env.example .env
+    # Edit .env to set DATASET_DIR=/absolute/path/to/dataset
+    ```
 
-2. **Run training:**
-   ```bash
-   ./docker-run.sh train
-   ```
-   This mounts your dataset, config, checkpoints, and outputs directories automatically.
+2.  **Run Training:**
+    ```bash
+    docker-compose up --build andros-segmentation
+    ```
+    This builds the image and starts training with the configuration in `config/config.yaml`.
 
-3. **Run evaluation:**
-   ```bash
-   ./docker-run.sh evaluate
-   ```
+3.  **Run Evaluation:**
+    ```bash
+    docker-compose run --rm evaluate
+    ```
 
-4. **Generate masks:**
-   ```bash
-   ./docker-run.sh generate
-   ```
+4.  **Generate Masks:**
+    ```bash
+    docker-compose run --rm generate-masks
+    ```
 
-5. **Interactive shell (for debugging):**
-   ```bash
-   ./docker-run.sh shell
-   ```
-
-6. **Run tests:**
-   ```bash
-   ./docker-run.sh test
-   ```
-
-#### Using Docker Compose
-
-Alternatively, use docker-compose for more complex workflows:
-
-```bash
-# Train with GPU support
-docker-compose up andros-segmentation
-
-# Run evaluation (uses profile)
-docker-compose --profile evaluate up evaluate
-
-# Generate masks (uses profile)
-docker-compose --profile generate up generate-masks
-```
-
-#### Docker Configuration
-
-- **Dataset path:** Update the dataset path in [docker-compose.yml](docker-compose.yml#L22) or [docker-run.sh](docker-run.sh#L12) to match your local dataset location.
-- **Config file:** The Docker setup uses [config/config.docker.yaml](config/config.docker.yaml) by default (with `DATASET_PATH: /data`), but you can edit the mounted [config/config.yaml](config/config.yaml) for custom runs.
-- **GPU settings:** Control GPU visibility with `CUDA_VISIBLE_DEVICES` environment variable in docker-compose.yml.
-- **CPU-only mode:** Use `./docker-run.sh cpu` or remove the `--gpus all` flag from docker run commands.
-
-#### Volume Mounts
-Docker containers mount the following directories:
-- `/data` → Your dataset (read-only)
-- `/app/config` → Configuration files (allows live editing)
-- `/app/checkpoints` → Model checkpoints (persisted)
-- `/app/outputs` → Evaluation results and masks (persisted)
+#### Docker Structure
+- **Checkpoints & Outputs:** Persisted in `./checkpoints` and `./outputs` on your host.
+- **Config:** The `./config` directory is mounted, so you can edit `config.yaml` locally and the container will see changes.
+- **Dataset:** Mounted read-only from the path defined in `.env`.
 
 
 ## Usage
