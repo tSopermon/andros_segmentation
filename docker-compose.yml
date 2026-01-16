@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  andros-segmentation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: andros-segmentation
+    image: andros-segmentation:latest
+    
+    # GPU support (requires nvidia-docker)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    # Mount volumes
+    volumes:
+      # Mount dataset from env variable
+      - ${DATASET_DIR}:/data:ro
+      # Mount config (allows editing config without rebuilding)
+      - ./config:/app/config
+      # Mount checkpoints (persist trained models)
+      - ./checkpoints:/app/checkpoints
+      # Mount outputs (persist evaluation results)
+      - ./outputs:/app/outputs
+    
+    # Environment variables
+    environment:
+      - PYTHONUNBUFFERED=1
+      # NVIDIA_VISIBLE_DEVICES handled by deploy block usually, but keeping for compat if needed
+      - CUDA_VISIBLE_DEVICES=0 
+    
+    # Default command
+    command: python train.py --config config/config.yaml
+    
+    # Keep container running for debugging if needed
+    # stdin_open: true
+    # tty: true
+    
+    network_mode: bridge
+
+  # Service for evaluation
+  evaluate:
+    build: .
+    container_name: andros-evaluate
+    image: andros-segmentation:latest
+    profiles: ["evaluate"]
+    depends_on:
+      - andros-segmentation
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    volumes:
+      - ${DATASET_DIR}:/data:ro
+      - ./config:/app/config
+      - ./checkpoints:/app/checkpoints
+      - ./outputs:/app/outputs
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0
+    
+    command: python evaluate.py --config config/config.yaml
+
+  # Service for mask generation
+  generate-masks:
+    build: .
+    container_name: andros-generate-masks
+    image: andros-segmentation:latest
+    profiles: ["generate"]
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    volumes:
+      - ${DATASET_DIR}:/data:ro
+      - ./config:/app/config
+      - ./checkpoints:/app/checkpoints
+      - ./outputs:/app/outputs
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CUDA_VISIBLE_DEVICES=0
+    
+    command: python generate_masks.py

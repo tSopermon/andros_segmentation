@@ -1,0 +1,38 @@
+DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset"
+BATCH_SIZE: 4
+MAX_EPOCHS: 100
+LEARNING_RATE: 0.0001
+LR_DECAY_GAMMA: 0.95
+IMAGE_SIZE: 512
+NUM_WORKERS: 0
+USE_AUGMENTATION: true
+PATIENCE: 20
+MIN_EPOCHS: 20
+MIN_DELTA: 0.0001
+LR_PATIENCE_THRESHOLD: 0.5
+LR_PATIENCE_SCALE: 1.5
+BACKBONE: resnet50
+LOGGING_LEVEL: INFO
+# K-fold cross-validation: number of folds to use during training (1 = no k-fold)
+K_FOLDS: 5
+# If true, ensemble fold checkpoints for final evaluation
+ENSEMBLE: true
+# Encoder weights to use for backbones (null/None to disable pretrained weights)
+ENCODER_WEIGHTS: imagenet
+# When true, generate masks for train/val/test (not just test)
+GENERATE_FOR_ALL_SETS: true
+# When true, also include low-resolution images found in the dataset 'lowres' folder
+INCLUDE_LOWRES: true
+# When true, include / enable the original-paper U-Net in runs
+USE_UNET_ORIGINAL: true
+# Enable original DeepLab variants (disabled by default). Set to true to include them.
+USE_DEEPLABV1_ORIGINAL: true
+USE_DEEPLABV2_ORIGINAL: true
+USE_DEEPLABV3_ORIGINAL: true
+# Model selection mode: one of `standard`, `originals`, or `all`.
+# - `standard`: use the standard SMP-backed models (DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus).
+# - `originals`: use only original-paper implementations (`UNet_original`, `DeepLabV1_original`, `DeepLabV2_original`, `DeepLabV3_original`).
+# - `all`: train/evaluate both standard and original implementations.
+MODEL_SET: all
+# Loss function: 'CrossEntropy', 'Dice', or 'DiceBCE' (Dice + CrossEntropy)
+LOSS_FUNCTION: 'DiceBCE'

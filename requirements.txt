@@ -1,0 +1,13 @@
+torch
+numpy
+opencv-python
+albumentations
+segmentation-models-pytorch
+scikit-learn
+matplotlib
+tqdm
+pytest
+seaborn
+pyyaml
+torchvision
+encoding
