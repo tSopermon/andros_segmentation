@@ -38,7 +38,7 @@ class _DummyModel(nn.Module):
         return x.new_zeros((x.shape[0], self._classes, x.shape[2], x.shape[3]))
 
 
-def get_models(num_classes: int, backbone: str = 'resnet101', encoder_weights: str = 'imagenet') -> Dict[str, nn.Module]:
+def get_models(num_classes: int, backbone: str = 'resnet101', encoder_weights: str = 'imagenet', specific_model: str = None) -> Dict[str, nn.Module]:
     """Return a dictionary of segmentation models.
 
     If `segmentation_models_pytorch` is available, return real SMP models.
@@ -46,39 +46,47 @@ def get_models(num_classes: int, backbone: str = 'resnet101', encoder_weights: s
     """
     models_dict = {}
 
+    def should_include(name):
+        return specific_model is None or name == specific_model
+
     if HAS_SMP:
-        models_dict['DeepLabV3'] = smp.DeepLabV3(
-            encoder_name=backbone,
-            encoder_weights=encoder_weights,
-            in_channels=3,
-            classes=num_classes,
-        )
-        models_dict['DeepLabV3Plus'] = smp.DeepLabV3Plus(
-            encoder_name=backbone,
-            encoder_weights=encoder_weights,
-            in_channels=3,
-            classes=num_classes,
-        )
-        models_dict['UNet'] = smp.Unet(
-            encoder_name=backbone,
-            encoder_weights=encoder_weights,
-            in_channels=3,
-            classes=num_classes,
-        )
-        models_dict['UNetPlusPlus'] = smp.UnetPlusPlus(
-            encoder_name=backbone,
-            encoder_weights=encoder_weights,
-            in_channels=3,
-            classes=num_classes,
-        )
+        if should_include('DeepLabV3'):
+            models_dict['DeepLabV3'] = smp.DeepLabV3(
+                encoder_name=backbone,
+                encoder_weights=encoder_weights,
+                in_channels=3,
+                classes=num_classes,
+            )
+        if should_include('DeepLabV3Plus'):
+            models_dict['DeepLabV3Plus'] = smp.DeepLabV3Plus(
+                encoder_name=backbone,
+                encoder_weights=encoder_weights,
+                in_channels=3,
+                classes=num_classes,
+            )
+        if should_include('UNet'):
+            models_dict['UNet'] = smp.Unet(
+                encoder_name=backbone,
+                encoder_weights=encoder_weights,
+                in_channels=3,
+                classes=num_classes,
+            )
+        if should_include('UNetPlusPlus'):
+            models_dict['UNetPlusPlus'] = smp.UnetPlusPlus(
+                encoder_name=backbone,
+                encoder_weights=encoder_weights,
+                in_channels=3,
+                classes=num_classes,
+            )
     else:
-        models_dict['DeepLabV3'] = _DummyModel(in_channels=3, classes=num_classes)
-        models_dict['DeepLabV3Plus'] = _DummyModel(in_channels=3, classes=num_classes)
-        models_dict['UNet'] = _DummyModel(in_channels=3, classes=num_classes)
-        models_dict['UNetPlusPlus'] = _DummyModel(in_channels=3, classes=num_classes)
+        if should_include('DeepLabV3'): models_dict['DeepLabV3'] = _DummyModel(in_channels=3, classes=num_classes)
+        if should_include('DeepLabV3Plus'): models_dict['DeepLabV3Plus'] = _DummyModel(in_channels=3, classes=num_classes)
+        if should_include('UNet'): models_dict['UNet'] = _DummyModel(in_channels=3, classes=num_classes)
+        if should_include('UNetPlusPlus'): models_dict['UNetPlusPlus'] = _DummyModel(in_channels=3, classes=num_classes)
 
     # Always register the original-paper U-Net implementation
-    models_dict['UNet_original'] = UNetOriginal(in_channels=3, out_channels=num_classes)
+    if should_include('UNet_original'):
+        models_dict['UNet_original'] = UNetOriginal(in_channels=3, out_channels=num_classes)
 
     # Optionally register original DeepLab models if requested via environment variables.
     # These are disabled by default so unit tests that expect the previous set of keys
@@ -86,19 +94,22 @@ def get_models(num_classes: int, backbone: str = 'resnet101', encoder_weights: s
     # - USE_DEEPLABV1_ORIGINAL
     # - USE_DEEPLABV2_ORIGINAL
     # - USE_DEEPLABV3_ORIGINAL
-    if os.environ.get('USE_DEEPLABV1_ORIGINAL', 'false').lower() in ('1', 'true', 'yes'):
+    if should_include('DeepLabV1_original') and os.environ.get('USE_DEEPLABV1_ORIGINAL', 'false').lower() in ('1', 'true', 'yes'):
         try:
             models_dict['DeepLabV1_original'] = DeepLabV1Original(n_classes=num_classes)
         except Exception:
             models_dict['DeepLabV1_original'] = _DummyModel(in_channels=3, classes=num_classes)
 
-    if os.environ.get('USE_DEEPLABV2_ORIGINAL', 'false').lower() in ('1', 'true', 'yes'):
+    if should_include('DeepLabV2_original') and os.environ.get('USE_DEEPLABV2_ORIGINAL', 'false').lower() in ('1', 'true', 'yes'):
         try:
-            models_dict['DeepLabV2_original'] = DeepLabV2Original(n_classes=num_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24])
-        except Exception:
+            models_dict['DeepLabV2_original'] = DeepLabV2Original(n_classes=num_classes, n_blocks=[3, 4, 23, 3], atrous_rates=[6, 12, 18, 24], backbone=backbone)
+        except Exception as e:
+            print(f"FAILED to initialize DeepLabV2_original: {e}")
+            import traceback
+            traceback.print_exc()
             models_dict['DeepLabV2_original'] = _DummyModel(in_channels=3, classes=num_classes)
 
-    if os.environ.get('USE_DEEPLABV3_ORIGINAL', 'false').lower() in ('1', 'true', 'yes'):
+    if should_include('DeepLabV3_original') and os.environ.get('USE_DEEPLABV3_ORIGINAL', 'false').lower() in ('1', 'true', 'yes'):
         try:
             if deeplabv3_resnet50 is None:
                 raise ImportError("torchvision not available")

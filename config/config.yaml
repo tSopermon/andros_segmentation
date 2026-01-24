@@ -1,17 +1,17 @@
-DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset"
+DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/"
 BATCH_SIZE: 4
-MAX_EPOCHS: 100
+MAX_EPOCHS: 150
 LEARNING_RATE: 0.0001
 LR_DECAY_GAMMA: 0.95
 IMAGE_SIZE: 512
-NUM_WORKERS: 0
+NUM_WORKERS: 4
 USE_AUGMENTATION: true
-PATIENCE: 20
+PATIENCE: 40
 MIN_EPOCHS: 20
 MIN_DELTA: 0.0001
 LR_PATIENCE_THRESHOLD: 0.5
 LR_PATIENCE_SCALE: 1.5
-BACKBONE: resnet50
+BACKBONE: resnet18
 LOGGING_LEVEL: INFO
 # K-fold cross-validation: number of folds to use during training (1 = no k-fold)
 K_FOLDS: 5

@@ -15,7 +15,7 @@ import torch
 import numpy as np
 from pathlib import Path
 from utils.config_loader import load_config
-from utils.dataset import SegmentationDataset, count_pixels
+from utils.dataset import SegmentationDataset, count_pixels, get_pixel_counts_cache
 from utils.transforms import get_train_transform, get_val_transform
 from models.model_zoo import get_models
 from training.metrics import SegmentationMetrics
@@ -45,7 +45,7 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.benchmark = True
 config = load_config(args.config)
 DATASET_PATH = Path(config['DATASET_PATH'])
 TRAIN_IMG_PATH = DATASET_PATH / 'train' / 'image'
@@ -141,8 +141,8 @@ val_transform = get_val_transform(IMAGE_SIZE)
 if K_FOLDS == 1:
     train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images_split, train_masks_split, train_transform, label_mapping)
     val_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, val_images, val_masks, val_transform, label_mapping)
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
 BACKBONE = config.get('BACKBONE', 'resnet101')
 
@@ -182,8 +182,8 @@ else:
 def make_loaders(train_imgs, train_msks, val_imgs, val_msks):
     train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_imgs, train_msks, train_transform, label_mapping)
     val_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, val_imgs, val_msks, val_transform, label_mapping)
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
     return train_loader, val_loader
 
 # Training loop
@@ -202,7 +202,7 @@ for model_name in MODEL_NAMES:
         class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32, device=device)
 
         # instantiate model
-        model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS)[model_name].to(device)
+        model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS, specific_model=model_name)[model_name].to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY_GAMMA)
         
@@ -259,6 +259,8 @@ for model_name in MODEL_NAMES:
         torch.cuda.empty_cache()
     else:
         # K-FOLD training
+        logger.info("Pre-computing pixel counts for all masks to speed up K-Fold initialization...")
+        pixel_counts_cache = get_pixel_counts_cache(TRAIN_MASK_PATH, train_masks, label_mapping)
         fold_idx = 0
         # keep per-fold best metrics so we can pick the best fold to initialize full-data retrain
         fold_best_iou = []
@@ -270,13 +272,13 @@ for model_name in MODEL_NAMES:
             val_msks_fold = [train_masks[i] for i in val_idx]
             logger.info('Fold %d: %d train, %d val', fold_idx, len(train_imgs_fold), len(val_imgs_fold))
             # per-fold class weights
-            train_counts = count_pixels(TRAIN_MASK_PATH, train_msks_fold, label_mapping)
+            train_counts = np.sum([pixel_counts_cache[fname] for fname in train_msks_fold], axis=0)
             class_weights = 1.0 / np.maximum(train_counts.astype(np.float64), 1.0)
             class_weights = class_weights / class_weights.mean()
             class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32, device=device)
 
             # instantiate model per fold
-            model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS)[model_name].to(device)
+            model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS, specific_model=model_name)[model_name].to(device)
             optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
             scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY_GAMMA)
             
@@ -338,14 +340,14 @@ for model_name in MODEL_NAMES:
             logger.info('Performing ensemble evaluation for %s', model_name)
             # prepare test loader
             test_dataset = SegmentationDataset(TEST_IMG_PATH, TEST_MASK_PATH, test_images, test_masks, val_transform, label_mapping)
-            test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
+            test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
             ensemble_models = []
             for fold_i in range(1, K_FOLDS+1):
                 ckpt = f'checkpoints/{model_name}_fold{fold_i}_best.pth'
                 if not os.path.exists(ckpt):
                     logger.warning('Missing checkpoint for fold %d: %s', fold_i, ckpt)
                     continue
-                m = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS)[model_name].to(device)
+                m = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS, specific_model=model_name)[model_name].to(device)
                 m.load_state_dict(torch.load(ckpt, map_location=device))
                 m.eval()
                 ensemble_models.append(m)
@@ -388,13 +390,14 @@ for model_name in MODEL_NAMES:
         logger.info('Retraining %s on full training data using fold %d as initialization', model_name, best_fold_idx)
 
         # compute class weights on full training masks
-        train_counts_full = count_pixels(TRAIN_MASK_PATH, train_masks, label_mapping)
+        # Reuse cache since train_masks covers all files
+        train_counts_full = np.sum([pixel_counts_cache[fname] for fname in train_masks], axis=0)
         class_weights_full = 1.0 / np.maximum(train_counts_full.astype(np.float64), 1.0)
         class_weights_full = class_weights_full / class_weights_full.mean()
         class_weights_tensor_full = torch.tensor(class_weights_full, dtype=torch.float32, device=device)
 
         # instantiate and (optionally) load best-fold weights
-        model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS)[model_name].to(device)
+        model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS, specific_model=model_name)[model_name].to(device)
         best_fold_ckpt = f'checkpoints/{model_name}_fold{best_fold_idx}_best.pth'
         if os.path.exists(best_fold_ckpt):
             try:
@@ -422,7 +425,7 @@ for model_name in MODEL_NAMES:
 
         # full training loader (no held-out validation)
         full_train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images, train_masks, train_transform, label_mapping)
-        full_train_loader = DataLoader(full_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True)
+        full_train_loader = DataLoader(full_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
 
         for epoch in range(MAX_EPOCHS):
             current_lr = optimizer.param_groups[0]['lr']

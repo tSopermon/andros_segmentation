@@ -11,6 +11,8 @@ class SegmentationDataset(Dataset):
         self.mask_dir = mask_dir
         self.image_files = image_files
         self.mask_files = mask_files
+        if len(self.image_files) != len(self.mask_files):
+            raise ValueError(f"Number of images ({len(self.image_files)}) and masks ({len(self.mask_files)}) do not match.")
         self.transform = transform
         self.label_mapping = label_mapping
 
@@ -53,3 +55,16 @@ def count_pixels(mask_dir, mask_list, mapping):
         vals, freqs = np.unique(mapped, return_counts=True)
         counts[vals] += freqs
     return counts
+
+def get_pixel_counts_cache(mask_dir, mask_list, mapping):
+    cache = {}
+    for fname in mask_list:
+        m = cv2.imread(str(mask_dir / fname), cv2.IMREAD_GRAYSCALE)
+        mapped = np.zeros_like(m)
+        for orig, idx in mapping.items():
+            mapped[m == orig] = idx
+        vals, freqs = np.unique(mapped, return_counts=True)
+        counts = np.zeros(len(mapping), dtype=np.int64)
+        counts[vals] = freqs
+        cache[fname] = counts
+    return cache

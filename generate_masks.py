@@ -9,8 +9,10 @@ from evaluation.mask_utils import get_test_dataset, save_mask
 from utils.transforms import get_val_transform
 import cv2
 
+import argparse
+
 # Paths
-CONFIG_PATH = 'config/config.yaml'
+# CONFIG_PATH will be set via argparse
 CHECKPOINTS_DIR = 'checkpoints'
 OUTPUTS_DIR = 'outputs'
 
@@ -33,8 +35,12 @@ def main():
 	Run all trained models on the test set and generate segmentation masks for each image.
 	Masks are saved in model-specific output folders with a color palette for visualization.
 	"""
+	parser = argparse.ArgumentParser(description='Generate segmentation masks.')
+	parser.add_argument('--config', default='config/config.yaml', help='Path to config YAML file')
+	args = parser.parse_args()
+
 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-	config = load_config(CONFIG_PATH)
+	config = load_config(args.config)
 	dataset_path = Path(config['DATASET_PATH'])
 
 	# Determine model set from config. We temporarily set env vars so model_zoo registers

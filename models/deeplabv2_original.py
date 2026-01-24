@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
-from torchvision.models.resnet import ResNet101_Weights
+from torchvision.models.resnet import ResNet101_Weights, ResNet50_Weights
 
 class _ASPP(nn.Module):
     """
@@ -44,22 +44,25 @@ class DeepLabV2(nn.Module):
     Now uses torchvision.models.resnet101 with pretrained weights.
     """
 
-    def __init__(self, n_classes, n_blocks=None, atrous_rates=None):
+    def __init__(self, n_classes, n_blocks=None, atrous_rates=None, backbone='resnet50'):
         """
         Args:
             n_classes (int): Number of output classes.
             n_blocks (list): Deprecated/Ignored. Kept for backward compatibility.
             atrous_rates (list): List of atrous rates for ASPP. Defaults to [6, 12, 18, 24].
+            backbone (str): 'resnet50' or 'resnet101'.
         """
         super(DeepLabV2, self).__init__()
         
         if atrous_rates is None:
             atrous_rates = [6, 12, 18, 24]
             
-        # Load pretrained ResNet101
-        # replace_stride_with_dilation=[False, True, True] makes the output stride 8
-        # (layer3 stride becomes 1 with dilation 2, layer4 stride becomes 1 with dilation 4)
-        resnet = models.resnet101(weights=ResNet101_Weights.IMAGENET1K_V1, replace_stride_with_dilation=[False, True, True])
+        if backbone == 'resnet101':
+            resnet = models.resnet101(weights=ResNet101_Weights.IMAGENET1K_V1, replace_stride_with_dilation=[False, True, True])
+            aspp_in = 2048
+        else:
+            resnet = models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1, replace_stride_with_dilation=[False, True, True])
+            aspp_in = 2048
         
         # We need everything up to layer4
         self.layer1 = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool, resnet.layer1)
@@ -67,8 +70,8 @@ class DeepLabV2(nn.Module):
         self.layer3 = resnet.layer3
         self.layer4 = resnet.layer4
         
-        # ResNet101 layer4 output channels is 2048
-        self.aspp = _ASPP(2048, n_classes, atrous_rates)
+        # ResNet101 layer4 output channels is 2048, ResNet18 is 512
+        self.aspp = _ASPP(aspp_in, n_classes, atrous_rates)
 
     def forward(self, x):
         input_size = x.shape[2:]  # Store input spatial size (H, W)

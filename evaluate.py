@@ -35,8 +35,15 @@ from evaluation.plots import (
 import logging
 from utils.logging_config import configure_logging
 
+import argparse
+
+# Parse arguments
+parser = argparse.ArgumentParser(description='Evaluate segmentation models.')
+parser.add_argument('--config', default='config/config.yaml', help='Path to config YAML file')
+args = parser.parse_args()
+
 # Load config
-config = load_config('config/config.yaml')
+config = load_config(args.config)
 DATASET_PATH = Path(config['DATASET_PATH'])
 TEST_IMG_PATH = DATASET_PATH / 'test' / 'image'
 TEST_MASK_PATH = DATASET_PATH / 'test' / 'mask'

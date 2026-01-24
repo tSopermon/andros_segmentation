@@ -1,9 +1,13 @@
+import sys
 import os
+from unittest.mock import patch
 from generate_masks import main as generate_masks_main
 
 def test_generate_masks_outputs():
     # Run the mask generation script
-    generate_masks_main()
+    # Mock sys.argv to avoid argparse conflict with pytest arguments
+    with patch.object(sys, 'argv', ['generate_masks.py']):
+        generate_masks_main()
     output_dir = 'outputs'
     model_names = ['DeepLabV3', 'DeepLabV3Plus', 'UNet', 'UNetPlusPlus']
     # Check that mask folders are created and contain at least one file (if folder exists)
