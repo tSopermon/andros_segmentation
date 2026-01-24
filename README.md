@@ -3,6 +3,8 @@
 ## Overview
 This repository provides a reproducible pipeline for multiclass image segmentation using PyTorch. It supports multiple architectures (DeepLabV3, UNet, UNet++, DeepLabV3+) and includes tools for training, evaluation, metrics, and visualization.
 
+For a detailed explanation of the data loading and training process, see [DATA_AND_TRAINING.md](DATA_AND_TRAINING.md).
+
 ## Features
 - **Modular Codebase:** Organized into config, data, models, training, evaluation, and utils.
 - **Supported Models:**
