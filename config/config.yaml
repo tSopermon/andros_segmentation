@@ -1,4 +1,4 @@
-DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/"
+DATASET_PATH: "/Andros Dataset/..."
 BATCH_SIZE: 4
 MAX_EPOCHS: 150
 LEARNING_RATE: 0.0001
