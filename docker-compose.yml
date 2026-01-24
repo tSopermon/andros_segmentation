@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   andros-segmentation:
@@ -33,6 +32,7 @@ services:
       - PYTHONUNBUFFERED=1
       # NVIDIA_VISIBLE_DEVICES handled by deploy block usually, but keeping for compat if needed
       - CUDA_VISIBLE_DEVICES=0 
+      - DATASET_PATH=/data
     
     # Default command
     command: python train.py --config config/config.yaml
@@ -69,6 +69,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - CUDA_VISIBLE_DEVICES=0
+      - DATASET_PATH=/data
     
     command: python evaluate.py --config config/config.yaml
 
@@ -96,5 +97,6 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - CUDA_VISIBLE_DEVICES=0
+      - DATASET_PATH=/data
     
     command: python generate_masks.py
