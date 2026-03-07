@@ -93,16 +93,19 @@ python evaluation/visualize_history.py
 - `train.py`, `evaluate.py`, `generate_masks.py`: Entry points.
 
 ## Dataset Structure
-```
+```text
 Andros Dataset/
     train/
+        image/
+        mask/
+    val/     (Optional, used if PRE_SPLIT_DATASET: true)
         image/
         mask/
     test/
         image/
         mask/
 ```
-Update paths in `config/config.yaml`.
+Update paths in `config/config.yaml`. Set `PRE_SPLIT_DATASET: true` if your dataset already includes a `val/` partition (this will force `K_FOLDS=1`).
 
 ## Testing
 Run unit tests:

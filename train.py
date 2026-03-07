@@ -20,7 +20,7 @@ from utils.transforms import get_train_transform, get_val_transform
 from models.model_zoo import get_models
 from training.metrics import SegmentationMetrics
 from training.train_utils import train_epoch, validate
-from training.losses import DiceLoss, DiceBCELoss
+from training.losses import DiceLoss, DiceBCELoss, FocalLoss
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
 from sklearn.model_selection import train_test_split
@@ -48,10 +48,10 @@ if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
 config = load_config(args.config)
 DATASET_PATH = Path(config['DATASET_PATH'])
-TRAIN_IMG_PATH = DATASET_PATH / 'train' / 'image'
-TRAIN_MASK_PATH = DATASET_PATH / 'train' / 'mask'
-TEST_IMG_PATH = DATASET_PATH / 'test' / 'image'
-TEST_MASK_PATH = DATASET_PATH / 'test' / 'mask'
+TRAIN_IMG_PATH = DATASET_PATH / 'train' / ('Image' if (DATASET_PATH / 'train' / 'Image').exists() else 'image')
+TRAIN_MASK_PATH = DATASET_PATH / 'train' / ('Mask' if (DATASET_PATH / 'train' / 'Mask').exists() else 'mask')
+TEST_IMG_PATH = DATASET_PATH / 'test' / ('Image' if (DATASET_PATH / 'test' / 'Image').exists() else 'image')
+TEST_MASK_PATH = DATASET_PATH / 'test' / ('Mask' if (DATASET_PATH / 'test' / 'Mask').exists() else 'mask')
 BATCH_SIZE = int(os.environ.get('BATCH_SIZE', config['BATCH_SIZE']))
 # Allow short smoke runs via env override
 MAX_EPOCHS = int(os.environ.get('MAX_EPOCHS', config['MAX_EPOCHS']))
@@ -78,17 +78,41 @@ configure_logging(level=config.get('LOGGING_LEVEL', 'INFO'))
 logger = logging.getLogger(__name__)
 logger.info(f"Using device: {device}")
 
+# Pre-split configurations
+PRE_SPLIT_DATASET = config.get('PRE_SPLIT_DATASET', False)
+if PRE_SPLIT_DATASET:
+    logger.info("PRE_SPLIT_DATASET is true: forcing K_FOLDS=1 and ENSEMBLE=False")
+    K_FOLDS = 1
+    ENSEMBLE = False
+
 # Get image and mask files
-train_images = sorted([f for f in os.listdir(TRAIN_IMG_PATH) if f.endswith(('.jpg', '.png'))])
-train_masks = sorted([f for f in os.listdir(TRAIN_MASK_PATH) if f.endswith(('.jpg', '.png'))])
-test_images = sorted([f for f in os.listdir(TEST_IMG_PATH) if f.endswith(('.jpg', '.png'))])
-test_masks = sorted([f for f in os.listdir(TEST_MASK_PATH) if f.endswith(('.jpg', '.png'))])
+image_extensions = ('.jpg', '.jpeg', '.png', '.tif', '.tiff')
+train_images = sorted([f for f in os.listdir(TRAIN_IMG_PATH) if f.lower().endswith(image_extensions)])
+train_masks = sorted([f for f in os.listdir(TRAIN_MASK_PATH) if f.lower().endswith(image_extensions)])
+
+if PRE_SPLIT_DATASET:
+    VAL_IMG_PATH = DATASET_PATH / 'val' / ('Image' if (DATASET_PATH / 'val' / 'Image').exists() else 'image')
+    VAL_MASK_PATH = DATASET_PATH / 'val' / ('Mask' if (DATASET_PATH / 'val' / 'Mask').exists() else 'mask')
+    val_images = sorted([f for f in os.listdir(VAL_IMG_PATH) if f.lower().endswith(image_extensions)])
+    val_masks = sorted([f for f in os.listdir(VAL_MASK_PATH) if f.lower().endswith(image_extensions)])
+else:
+    VAL_IMG_PATH = None
+    VAL_MASK_PATH = None
+    val_images = []
+    val_masks = []
+
+test_images = sorted([f for f in os.listdir(TEST_IMG_PATH) if f.lower().endswith(image_extensions)])
+test_masks = sorted([f for f in os.listdir(TEST_MASK_PATH) if f.lower().endswith(image_extensions)])
 
 # Scan masks for class labels
 all_classes = set()
 for mask_file in train_masks:
     mask = cv2.imread(str(TRAIN_MASK_PATH / mask_file), cv2.IMREAD_GRAYSCALE)
     all_classes.update(np.unique(mask).tolist())
+if PRE_SPLIT_DATASET:
+    for mask_file in val_masks:
+        mask = cv2.imread(str(VAL_MASK_PATH / mask_file), cv2.IMREAD_GRAYSCALE)
+        all_classes.update(np.unique(mask).tolist())
 for mask_file in test_masks:
     mask = cv2.imread(str(TEST_MASK_PATH / mask_file), cv2.IMREAD_GRAYSCALE)
     all_classes.update(np.unique(mask).tolist())
@@ -98,8 +122,13 @@ label_mapping = {original: idx for idx, original in enumerate(class_labels)}
 
 # Train/val split
 if K_FOLDS == 1:
-    train_images_split, val_images = train_test_split(train_images, test_size=0.2, random_state=42)
-    train_masks_split, val_masks = train_test_split(train_masks, test_size=0.2, random_state=42)
+    if PRE_SPLIT_DATASET:
+        train_images_split = train_images
+        train_masks_split = train_masks
+        # val_images and val_masks are already loaded
+    else:
+        train_images_split, val_images = train_test_split(train_images, test_size=0.2, random_state=42)
+        train_masks_split, val_masks = train_test_split(train_masks, test_size=0.2, random_state=42)
 else:
     # For stratified k-fold we compute a primary label per image (most common mapped label)
     primary_labels = []
@@ -139,8 +168,10 @@ val_transform = get_val_transform(IMAGE_SIZE)
 
 # Datasets and loaders (only create the one-shot split when not using k-fold)
 if K_FOLDS == 1:
+    val_img_path = VAL_IMG_PATH if PRE_SPLIT_DATASET else TRAIN_IMG_PATH
+    val_mask_path = VAL_MASK_PATH if PRE_SPLIT_DATASET else TRAIN_MASK_PATH
     train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images_split, train_masks_split, train_transform, label_mapping)
-    val_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, val_images, val_masks, val_transform, label_mapping)
+    val_dataset = SegmentationDataset(val_img_path, val_mask_path, val_images, val_masks, val_transform, label_mapping)
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
@@ -180,8 +211,10 @@ else:
 
 # Helper to create dataloaders for a given split
 def make_loaders(train_imgs, train_msks, val_imgs, val_msks):
+    val_img_path = VAL_IMG_PATH if PRE_SPLIT_DATASET else TRAIN_IMG_PATH
+    val_mask_path = VAL_MASK_PATH if PRE_SPLIT_DATASET else TRAIN_MASK_PATH
     train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_imgs, train_msks, train_transform, label_mapping)
-    val_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, val_imgs, val_msks, val_transform, label_mapping)
+    val_dataset = SegmentationDataset(val_img_path, val_mask_path, val_imgs, val_msks, val_transform, label_mapping)
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
     return train_loader, val_loader
@@ -212,6 +245,8 @@ for model_name in MODEL_NAMES:
             criterion = DiceBCELoss(weight=class_weights_tensor)
         elif loss_fn_name == 'Dice':
              criterion = DiceLoss() 
+        elif loss_fn_name == 'Focal':
+             criterion = FocalLoss(weight=class_weights_tensor)
         else:
              criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
              
@@ -287,6 +322,8 @@ for model_name in MODEL_NAMES:
                 criterion = DiceBCELoss(weight=class_weights_tensor)
             elif loss_fn_name == 'Dice':
                 criterion = DiceLoss()
+            elif loss_fn_name == 'Focal':
+                criterion = FocalLoss(weight=class_weights_tensor)
             else:
                 criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
                 
@@ -415,6 +452,8 @@ for model_name in MODEL_NAMES:
             criterion = DiceBCELoss(weight=class_weights_tensor_full)
         elif loss_fn_name == 'Dice':
              criterion = DiceLoss()
+        elif loss_fn_name == 'Focal':
+             criterion = FocalLoss(weight=class_weights_tensor_full)
         else:
              criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor_full)
              

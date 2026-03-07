@@ -21,8 +21,8 @@ def get_test_dataset(config):
         SegmentationDataset: Dataset for test images and masks.
     """
     dataset_path = config['DATASET_PATH']
-    test_img_dir = Path(dataset_path) / 'test' / 'image'
-    test_mask_dir = Path(dataset_path) / 'test' / 'mask'
+    test_img_dir = Path(dataset_path) / 'test' / ('Image' if (Path(dataset_path) / 'test' / 'Image').exists() else 'image')
+    test_mask_dir = Path(dataset_path) / 'test' / ('Mask' if (Path(dataset_path) / 'test' / 'Mask').exists() else 'mask')
     image_files = sorted(os.listdir(test_img_dir))
     mask_files = sorted(os.listdir(test_mask_dir))
     image_size = config['IMAGE_SIZE']

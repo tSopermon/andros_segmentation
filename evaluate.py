@@ -45,8 +45,8 @@ args = parser.parse_args()
 # Load config
 config = load_config(args.config)
 DATASET_PATH = Path(config['DATASET_PATH'])
-TEST_IMG_PATH = DATASET_PATH / 'test' / 'image'
-TEST_MASK_PATH = DATASET_PATH / 'test' / 'mask'
+TEST_IMG_PATH = DATASET_PATH / 'test' / ('Image' if (DATASET_PATH / 'test' / 'Image').exists() else 'image')
+TEST_MASK_PATH = DATASET_PATH / 'test' / ('Mask' if (DATASET_PATH / 'test' / 'Mask').exists() else 'mask')
 IMAGE_SIZE = config['IMAGE_SIZE']
 BATCH_SIZE = config['BATCH_SIZE']
 NUM_WORKERS = config['NUM_WORKERS']
@@ -139,6 +139,17 @@ else:
     raise RuntimeError(f"Unknown MODEL_SET '{model_set}' in config; expected 'standard', 'originals', or 'all'.")
 
 models_dict = {k: v for k, v in models_dict.items() if k in selected_models}
+
+# Ensure missing checkpoints exit properly
+missing = []
+for model_name in list(models_dict.keys()):
+    path = f"checkpoints/{model_name}_best.pth"
+    if not os.path.exists(path):
+        logger.error('No such file: %s', path)
+        missing.append(path)
+
+if len(missing) > 0:
+    raise SystemExit(2)
 
 for model_name in list(models_dict.keys()):
     models_dict[model_name] = models_dict[model_name].to(device)

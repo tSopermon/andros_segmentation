@@ -33,7 +33,7 @@ def test_metrics_update_and_compute():
     assert np.isclose(result['precision'][1], 1.0)
     assert np.isclose(result['recall'][1], 1.0)
     assert np.isclose(result['f1'][1], 1.0)
-    assert np.isclose(result['iou'][1], 0.5)
+    assert np.isclose(result['iou'][1], 1.0)
 
 def test_metrics_reset():
     num_classes = 2

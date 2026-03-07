@@ -1,20 +1,22 @@
-DATASET_PATH: "/Andros Dataset/..."
-BATCH_SIZE: 4
-MAX_EPOCHS: 150
+DATASET_PATH: "/home/tsopermon/Desktop/Benchmark Datasets/HexaLCSeg_10k/"
+# Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
+PRE_SPLIT_DATASET: true
+BATCH_SIZE: 8
+MAX_EPOCHS: 80
 LEARNING_RATE: 0.0001
 LR_DECAY_GAMMA: 0.95
-IMAGE_SIZE: 512
-NUM_WORKERS: 4
-USE_AUGMENTATION: true
-PATIENCE: 40
+IMAGE_SIZE: 256
+NUM_WORKERS: 0
+USE_AUGMENTATION: false
+PATIENCE: 20
 MIN_EPOCHS: 20
 MIN_DELTA: 0.0001
 LR_PATIENCE_THRESHOLD: 0.5
 LR_PATIENCE_SCALE: 1.5
-BACKBONE: resnet18
+BACKBONE: resnet50 # se_resnext50_32x4d: imagenet
 LOGGING_LEVEL: INFO
 # K-fold cross-validation: number of folds to use during training (1 = no k-fold)
-K_FOLDS: 5
+K_FOLDS: 1
 # If true, ensemble fold checkpoints for final evaluation
 ENSEMBLE: true
 # Encoder weights to use for backbones (null/None to disable pretrained weights)
@@ -24,15 +26,15 @@ GENERATE_FOR_ALL_SETS: true
 # When true, also include low-resolution images found in the dataset 'lowres' folder
 INCLUDE_LOWRES: true
 # When true, include / enable the original-paper U-Net in runs
-USE_UNET_ORIGINAL: true
+USE_UNET_ORIGINAL: false
 # Enable original DeepLab variants (disabled by default). Set to true to include them.
-USE_DEEPLABV1_ORIGINAL: true
-USE_DEEPLABV2_ORIGINAL: true
-USE_DEEPLABV3_ORIGINAL: true
+USE_DEEPLABV1_ORIGINAL: false
+USE_DEEPLABV2_ORIGINAL: false
+USE_DEEPLABV3_ORIGINAL: false
 # Model selection mode: one of `standard`, `originals`, or `all`.
 # - `standard`: use the standard SMP-backed models (DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus).
 # - `originals`: use only original-paper implementations (`UNet_original`, `DeepLabV1_original`, `DeepLabV2_original`, `DeepLabV3_original`).
 # - `all`: train/evaluate both standard and original implementations.
-MODEL_SET: all
-# Loss function: 'CrossEntropy', 'Dice', or 'DiceBCE' (Dice + CrossEntropy)
+MODEL_SET: standard
+# Loss function: 'CrossEntropy', 'Dice', Focal or 'DiceBCE' (Dice + CrossEntropy)
 LOSS_FUNCTION: 'DiceBCE'
