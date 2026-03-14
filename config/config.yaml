@@ -36,5 +36,5 @@ USE_DEEPLABV3_ORIGINAL: false
 # - `originals`: use only original-paper implementations (`UNet_original`, `DeepLabV1_original`, `DeepLabV2_original`, `DeepLabV3_original`).
 # - `all`: train/evaluate both standard and original implementations.
 MODEL_SET: standard
-# Loss function: 'CrossEntropy', 'Dice', Focal or 'DiceBCE' (Dice + CrossEntropy)
+# Loss function: 'CrossEntropy', 'Dice', 'Focal' or 'DiceBCE' (Dice + CrossEntropy)
 LOSS_FUNCTION: 'DiceBCE'
