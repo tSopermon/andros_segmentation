@@ -71,7 +71,21 @@ def export_metrics(models_dict, all_test_results, training_history, num_classes,
             'Test_F1': [final_val_f1],
             'Test_IoU': [final_val_iou]
         })
-        df = pd.concat([train_row, val_row, pd.DataFrame({'Class': ['']}), df, mean_row], ignore_index=True)
+        weighted_row = pd.DataFrame({
+            'Class': ['TEST_WEIGHTED'],
+            'Test_Precision': [test_result.get('precision_weighted', 0)],
+            'Test_Recall': [test_result.get('recall_weighted', 0)],
+            'Test_F1': [test_result.get('f1_weighted', 0)],
+            'Test_IoU': [test_result.get('iou_weighted', 0)]
+        })
+        micro_row = pd.DataFrame({
+            'Class': ['TEST_MICRO'],
+            'Test_Precision': [test_result.get('precision_micro', 0)],
+            'Test_Recall': [test_result.get('recall_micro', 0)],
+            'Test_F1': [test_result.get('f1_micro', 0)],
+            'Test_IoU': [test_result.get('iou_micro', 0)]
+        })
+        df = pd.concat([train_row, val_row, pd.DataFrame({'Class': ['']}), df, mean_row, weighted_row, micro_row], ignore_index=True)
         csv_path = os.path.join(output_dir, f"{model_name}_test_metrics.csv")
         df.to_csv(csv_path, index=False)
         logger.info(f"✓ {model_name} metrics saved to {csv_path}")
@@ -93,7 +107,9 @@ def export_metrics(models_dict, all_test_results, training_history, num_classes,
             'Test_Precision': test_result['precision_mean'],
             'Test_Recall': test_result['recall_mean'],
             'Test_F1': test_result['f1_mean'],
-            'Test_mIoU': test_result['iou_mean']
+            'Test_mIoU': test_result['iou_mean'],
+            'Test_Weighted_IoU': test_result.get('iou_weighted', 0),
+            'Test_Micro_IoU': test_result.get('iou_micro', 0)
         })
     summary_df = pd.DataFrame(summary_data)
     summary_csv = os.path.join(output_dir, "models_summary_metrics.csv")

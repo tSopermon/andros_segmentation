@@ -53,19 +53,53 @@ class SegmentationMetrics:
         Compute and return all metrics as a dictionary.
 
         Returns:
-            dict: Dictionary with per-class and mean metrics (precision, recall, f1, iou).
+            dict: Dictionary with per-class, mean (macro), weighted, and micro metrics.
         """
         metrics = {}
+        # Per-class metrics
         precision = np.divide(self.tp, self.tp + self.fp, where=(self.tp + self.fp) != 0, out=np.ones_like(self.tp))
         recall = np.divide(self.tp, self.tp + self.fn, where=(self.tp + self.fn) != 0, out=np.ones_like(self.tp))
         f1 = np.divide(2 * precision * recall, precision + recall, where=(precision + recall) != 0, out=np.zeros_like(precision))
         iou = np.divide(self.intersection, self.union, where=self.union != 0, out=np.ones_like(self.intersection))
+        
         metrics['precision'] = precision
         metrics['recall'] = recall
         metrics['f1'] = f1
         metrics['iou'] = iou
+
+        # 1. Macro (Mean) Averages - already in system
         metrics['precision_mean'] = np.nanmean(precision)
         metrics['recall_mean'] = np.nanmean(recall)
         metrics['f1_mean'] = np.nanmean(f1)
         metrics['iou_mean'] = np.nanmean(iou)
+
+        # 2. Weighted Averages (Weighted by number of pixels in each class)
+        weights = self.tp + self.fn
+        total_pixels = weights.sum()
+        if total_pixels > 0:
+            w = weights / total_pixels
+            metrics['precision_weighted'] = np.sum(precision * w)
+            metrics['recall_weighted'] = np.sum(recall * w)
+            metrics['f1_weighted'] = np.sum(f1 * w)
+            metrics['iou_weighted'] = np.sum(iou * w)
+        else:
+            metrics['precision_weighted'] = metrics['precision_mean']
+            metrics['recall_weighted'] = metrics['recall_mean']
+            metrics['f1_weighted'] = metrics['f1_mean']
+            metrics['iou_weighted'] = metrics['iou_mean']
+
+        # 3. Micro Averages
+        tp_sum = self.tp.sum()
+        fp_sum = self.fp.sum()
+        fn_sum = self.fn.sum()
+        intersection_sum = self.intersection.sum()
+        union_sum = self.union.sum()
+
+        p_micro = tp_sum / (tp_sum + fp_sum) if (tp_sum + fp_sum) > 0 else 1.0
+        r_micro = tp_sum / (tp_sum + fn_sum) if (tp_sum + fn_sum) > 0 else 1.0
+        metrics['precision_micro'] = p_micro
+        metrics['recall_micro'] = r_micro
+        metrics['f1_micro'] = 2 * p_micro * r_micro / (p_micro + r_micro) if (p_micro + r_micro) > 0 else 0.0
+        metrics['iou_micro'] = intersection_sum / union_sum if union_sum > 0 else 1.0
+        
         return metrics

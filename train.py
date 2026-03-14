@@ -231,7 +231,16 @@ training_history = {}
 # Training per model (and per-fold when K_FOLDS>1)
 training_history = {}
 for model_name in MODEL_NAMES:
-    training_history[model_name] = {k: [] for k in ['train_loss','val_loss','train_f1_mean','train_precision_mean','train_recall_mean','train_iou_mean','val_f1_mean','val_precision_mean','val_recall_mean','val_iou_mean']}
+    metric_keys = [
+        'train_loss', 'val_loss', 
+        'train_f1_mean', 'train_precision_mean', 'train_recall_mean', 'train_iou_mean',
+        'train_f1_weighted', 'train_precision_weighted', 'train_recall_weighted', 'train_iou_weighted',
+        'train_f1_micro', 'train_precision_micro', 'train_recall_micro', 'train_iou_micro',
+        'val_f1_mean', 'val_precision_mean', 'val_recall_mean', 'val_iou_mean',
+        'val_f1_weighted', 'val_precision_weighted', 'val_recall_weighted', 'val_iou_weighted',
+        'val_f1_micro', 'val_precision_micro', 'val_recall_micro', 'val_iou_micro'
+    ]
+    training_history[model_name] = {k: [] for k in metric_keys}
     logger.info("\n%s\nTraining %s\n%s", '='*70, model_name, '='*70)
     # K_FOLDS == 1: use the previously-created single split
     if K_FOLDS == 1:
@@ -283,14 +292,15 @@ for model_name in MODEL_NAMES:
             # Store metrics
             training_history[model_name]['train_loss'].append(train_loss)
             training_history[model_name]['val_loss'].append(val_loss)
-            training_history[model_name]['train_f1_mean'].append(train_metrics_dict['f1_mean'])
-            training_history[model_name]['train_precision_mean'].append(train_metrics_dict['precision_mean'])
-            training_history[model_name]['train_recall_mean'].append(train_metrics_dict['recall_mean'])
-            training_history[model_name]['train_iou_mean'].append(train_metrics_dict['iou_mean'])
-            training_history[model_name]['val_f1_mean'].append(val_metrics_dict['f1_mean'])
-            training_history[model_name]['val_precision_mean'].append(val_metrics_dict['precision_mean'])
-            training_history[model_name]['val_recall_mean'].append(val_metrics_dict['recall_mean'])
-            training_history[model_name]['val_iou_mean'].append(val_metrics_dict['iou_mean'])
+            for m_type in ['mean', 'weighted', 'micro']:
+                training_history[model_name][f'train_f1_{m_type}'].append(train_metrics_dict[f'f1_{m_type}'])
+                training_history[model_name][f'train_precision_{m_type}'].append(train_metrics_dict[f'precision_{m_type}'])
+                training_history[model_name][f'train_recall_{m_type}'].append(train_metrics_dict[f'recall_{m_type}'])
+                training_history[model_name][f'train_iou_{m_type}'].append(train_metrics_dict[f'iou_{m_type}'])
+                training_history[model_name][f'val_f1_{m_type}'].append(val_metrics_dict[f'f1_{m_type}'])
+                training_history[model_name][f'val_precision_{m_type}'].append(val_metrics_dict[f'precision_{m_type}'])
+                training_history[model_name][f'val_recall_{m_type}'].append(val_metrics_dict[f'recall_{m_type}'])
+                training_history[model_name][f'val_iou_{m_type}'].append(val_metrics_dict[f'iou_{m_type}'])
             # Early stopping
             if val_metrics_dict['iou_mean'] > best_val_iou + MIN_DELTA:
                 best_val_iou = val_metrics_dict['iou_mean']
@@ -370,14 +380,15 @@ for model_name in MODEL_NAMES:
                 # Store metrics (append per-fold epoch history)
                 training_history[model_name]['train_loss'].append(train_loss)
                 training_history[model_name]['val_loss'].append(val_loss)
-                training_history[model_name]['train_f1_mean'].append(train_metrics_dict['f1_mean'])
-                training_history[model_name]['train_precision_mean'].append(train_metrics_dict['precision_mean'])
-                training_history[model_name]['train_recall_mean'].append(train_metrics_dict['recall_mean'])
-                training_history[model_name]['train_iou_mean'].append(train_metrics_dict['iou_mean'])
-                training_history[model_name]['val_f1_mean'].append(val_metrics_dict['f1_mean'])
-                training_history[model_name]['val_precision_mean'].append(val_metrics_dict['precision_mean'])
-                training_history[model_name]['val_recall_mean'].append(val_metrics_dict['recall_mean'])
-                training_history[model_name]['val_iou_mean'].append(val_metrics_dict['iou_mean'])
+                for m_type in ['mean', 'weighted', 'micro']:
+                    training_history[model_name][f'train_f1_{m_type}'].append(train_metrics_dict[f'f1_{m_type}'])
+                    training_history[model_name][f'train_precision_{m_type}'].append(train_metrics_dict[f'precision_{m_type}'])
+                    training_history[model_name][f'train_recall_{m_type}'].append(train_metrics_dict[f'recall_{m_type}'])
+                    training_history[model_name][f'train_iou_{m_type}'].append(train_metrics_dict[f'iou_{m_type}'])
+                    training_history[model_name][f'val_f1_{m_type}'].append(val_metrics_dict[f'f1_{m_type}'])
+                    training_history[model_name][f'val_precision_{m_type}'].append(val_metrics_dict[f'precision_{m_type}'])
+                    training_history[model_name][f'val_recall_{m_type}'].append(val_metrics_dict[f'recall_{m_type}'])
+                    training_history[model_name][f'val_iou_{m_type}'].append(val_metrics_dict[f'iou_{m_type}'])
                 # Early stopping
                 if val_metrics_dict['iou_mean'] > best_val_iou + MIN_DELTA:
                     best_val_iou = val_metrics_dict['iou_mean']
@@ -498,6 +509,14 @@ for model_name in MODEL_NAMES:
                 model, full_train_loader, criterion, optimizer, device, train_metrics,
                 epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='FullTrain')
             scheduler.step()
+            
+            # Store metrics for full retrain
+            training_history[model_name]['train_loss'].append(train_loss)
+            for m_type in ['mean', 'weighted', 'micro']:
+                training_history[model_name][f'train_f1_{m_type}'].append(train_metrics_dict[f'f1_{m_type}'])
+                training_history[model_name][f'train_precision_{m_type}'].append(train_metrics_dict[f'precision_{m_type}'])
+                training_history[model_name][f'train_recall_{m_type}'].append(train_metrics_dict[f'recall_{m_type}'])
+                training_history[model_name][f'train_iou_{m_type}'].append(train_metrics_dict[f'iou_{m_type}'])
             current_lr = optimizer.param_groups[0]['lr']
             # Save when training loss improves
             if train_loss < best_train_loss - MIN_DELTA:

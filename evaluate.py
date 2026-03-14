@@ -30,7 +30,8 @@ from evaluation.plots import (
     plot_metric_correlation_matrix,
     plot_metric_per_class,
     plot_mean_metrics,
-    plot_metric_per_model_per_class
+    plot_metric_per_model_per_class,
+    plot_all_averages
 )
 import logging
 from utils.logging_config import configure_logging
@@ -190,8 +191,12 @@ for model_name, model in models_dict.items():
         logger.info(f"{cname:<20} {test_metrics_dict['precision'][c]:<12.4f} {test_metrics_dict['recall'][c]:<12.4f} "
                     f"{test_metrics_dict['f1'][c]:<12.4f} {test_metrics_dict['iou'][c]:<12.4f}")
     logger.info('%s', '-' * 80)
-    logger.info(f"{'MEAN':<10} {test_metrics_dict['precision_mean']:<12.4f} {test_metrics_dict['recall_mean']:<12.4f} "
+    logger.info(f"{'MEAN (Macro)':<20} {test_metrics_dict['precision_mean']:<12.4f} {test_metrics_dict['recall_mean']:<12.4f} "
                 f"{test_metrics_dict['f1_mean']:<12.4f} {test_metrics_dict['iou_mean']:<12.4f}")
+    logger.info(f"{'Weighted':<20} {test_metrics_dict['precision_weighted']:<12.4f} {test_metrics_dict['recall_weighted']:<12.4f} "
+                f"{test_metrics_dict['f1_weighted']:<12.4f} {test_metrics_dict['iou_weighted']:<12.4f}")
+    logger.info(f"{'Micro':<20} {test_metrics_dict['precision_micro']:<12.4f} {test_metrics_dict['recall_micro']:<12.4f} "
+                f"{test_metrics_dict['f1_micro']:<12.4f} {test_metrics_dict['iou_micro']:<12.4f}")
     logger.info('%s', '=' * 80)
 
 # Visualizations
@@ -204,6 +209,7 @@ plot_metric_per_class(all_test_results, 'recall', class_names)
 plot_metric_per_class(all_test_results, 'f1', class_names)
 plot_metric_per_class(all_test_results, 'iou', class_names)
 plot_mean_metrics(all_test_results)
+plot_all_averages(all_test_results)
 plot_metric_per_model_per_class(all_test_results, class_names)
 plot_confusion_matrices(models_dict, test_loader, label_mapping, class_names=class_names, output_dir="outputs")
 plot_metric_vs_class_frequency(all_test_results, test_loader, class_names=class_names, output_dir="outputs")

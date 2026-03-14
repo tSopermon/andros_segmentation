@@ -83,10 +83,9 @@ def _run_epoch(model, loader, criterion, device, optimizer=None, metrics=None, e
             metrics_dict = metrics.compute_metrics()
             postfix = {'loss': f'{loss.item():.4f}'}
             postfix.update({
-                'f1': f"{metrics_dict.get('f1_mean', 0):.4f}",
                 'IoU': f"{metrics_dict.get('iou_mean', 0):.4f}",
-                'Prec': f"{metrics_dict.get('precision_mean', 0):.4f}",
-                'Rec': f"{metrics_dict.get('recall_mean', 0):.4f}"
+                'wIoU': f"{metrics_dict.get('iou_weighted', 0):.4f}",
+                'f1': f"{metrics_dict.get('f1_mean', 0):.4f}"
             })
             pbar.set_postfix(postfix)
         else:

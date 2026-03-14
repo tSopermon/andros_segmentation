@@ -290,3 +290,42 @@ def plot_metric_per_model_per_class(all_test_results, class_labels, output_dir="
         save_path = f"{output_dir}/{safe_name}_metrics.png"
         plt.savefig(save_path)
         plt.close()
+
+def plot_all_averages(all_test_results, output_dir="outputs"):
+    """
+    Plot comparison of Macro, Weighted, and Micro IoU for each model.
+
+    Args:
+        all_test_results (dict): Dictionary mapping model names to test metrics dictionaries.
+        output_dir (str): Directory to save plots. Defaults to "outputs".
+
+    Returns:
+        None
+    """
+    model_names = list(all_test_results.keys())
+    if not model_names:
+        return
+    
+    # We focus on IoU as the representative metric
+    types = ['mean', 'weighted', 'micro']
+    labels = ['Macro (Mean)', 'Weighted', 'Micro']
+    
+    plt.figure(figsize=(12, 6))
+    x = np.arange(len(model_names))
+    width = 0.25
+    
+    for i, t in enumerate(types):
+        vals = [all_test_results[m].get(f'iou_{t}', 0) for m in model_names]
+        plt.bar(x + i*width, vals, width, label=labels[i])
+        
+    plt.xlabel('Model')
+    plt.ylabel('IoU Score')
+    plt.title('IoU Comparison: Macro vs Weighted vs Micro')
+    plt.xticks(x + width, model_names, rotation=15)
+    plt.ylim(0, 1.05)
+    plt.legend()
+    plt.grid(True, axis='y', linestyle='--', alpha=0.4)
+    plt.tight_layout()
+    save_path = f"{output_dir}/iou_averages_comparison.png"
+    plt.savefig(save_path)
+    plt.close()
