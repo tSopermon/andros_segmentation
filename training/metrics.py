@@ -44,7 +44,7 @@ class SegmentationMetrics:
             self.fp[c] += (pred_c * (1 - target_c)).sum()
             self.fn[c] += ((1 - pred_c) * target_c).sum()
             intersection = (pred_c * target_c).sum()
-            union = pred_c.sum() + target_c.sum()
+            union = pred_c.sum() + target_c.sum() - intersection
             self.intersection[c] += intersection
             self.union[c] += union
 

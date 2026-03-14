@@ -45,8 +45,8 @@ args = parser.parse_args()
 # Load config
 config = load_config(args.config)
 DATASET_PATH = Path(config['DATASET_PATH'])
-TEST_IMG_PATH = DATASET_PATH / 'test' / 'image'
-TEST_MASK_PATH = DATASET_PATH / 'test' / 'mask'
+TEST_IMG_PATH = DATASET_PATH / 'test' / ('Image' if (DATASET_PATH / 'test' / 'Image').exists() else 'image')
+TEST_MASK_PATH = DATASET_PATH / 'test' / ('Mask' if (DATASET_PATH / 'test' / 'Mask').exists() else 'mask')
 IMAGE_SIZE = config['IMAGE_SIZE']
 BATCH_SIZE = config['BATCH_SIZE']
 NUM_WORKERS = config['NUM_WORKERS']
@@ -58,31 +58,47 @@ logger = logging.getLogger(__name__)
 logger.info(f"Using device: {device}")
 
 # Get image and mask files
+import os
+os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
 import cv2
 
-test_images = sorted([f for f in os.listdir(TEST_IMG_PATH) if f.endswith(('.jpg', '.png'))])
-test_masks = sorted([f for f in os.listdir(TEST_MASK_PATH) if f.endswith(('.jpg', '.png'))])
+test_images = sorted([f for f in os.listdir(TEST_IMG_PATH) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.tif', '.tiff'))])
+test_masks = sorted([f for f in os.listdir(TEST_MASK_PATH) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.tif', '.tiff'))])
 
-# Scan masks for class labels
+# Scan ALL masks in dataset to define consistent NUM_CLASSES and label_mapping
 all_classes = set()
-for mask_file in test_masks:
-    mask = cv2.imread(str(TEST_MASK_PATH / mask_file), cv2.IMREAD_GRAYSCALE)
-    all_classes.update(np.unique(mask).tolist())
-NUM_CLASSES = len(all_classes)
+for subset in ['train', 'val', 'test', 'lowres']:
+    mask_dir = DATASET_PATH / subset / ('Mask' if (DATASET_PATH / subset / 'Mask').exists() else 'mask')
+    if mask_dir.exists():
+        for mask_file in os.listdir(mask_dir):
+            if mask_file.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff')):
+                mask = cv2.imread(str(mask_dir / mask_file), cv2.IMREAD_GRAYSCALE)
+                if mask is not None:
+                    all_classes.update(np.unique(mask).tolist())
+
+NUM_CLASSES = config.get('NUM_CLASSES', len(all_classes))
+if NUM_CLASSES == 0:
+    raise RuntimeError("No masks found to infer NUM_CLASSES and not provided in config.")
+
 class_labels = sorted(all_classes)
 label_mapping = {original: idx for idx, original in enumerate(class_labels)}
 
 # Human-readable class names (index -> name)
-class_names = [
-    'Water',
-    'Woodland',
-    'Arable land',
-    'Frygana',
-    'Other',
-    'Artificial land',
-    'Perm. Cult',
-    'Bareland'
-]
+if NUM_CLASSES == 8:
+    # Classic Andros Dataset
+    class_names = [
+        'Water',
+        'Woodland',
+        'Arable land',
+        'Frygana',
+        'Other',
+        'Artificial land',
+        'Perm. Cult',
+        'Bareland'
+    ]
+else:
+    # Modify these for your other dataset
+    class_names = [f'Class_{i}' for i in range(NUM_CLASSES)]
 # Ensure class_names length matches detected number of classes
 if len(class_names) != len(class_labels):
     logger = logging.getLogger(__name__)
@@ -139,6 +155,17 @@ else:
     raise RuntimeError(f"Unknown MODEL_SET '{model_set}' in config; expected 'standard', 'originals', or 'all'.")
 
 models_dict = {k: v for k, v in models_dict.items() if k in selected_models}
+
+# Ensure missing checkpoints exit properly
+missing = []
+for model_name in list(models_dict.keys()):
+    path = f"checkpoints/{model_name}_best.pth"
+    if not os.path.exists(path):
+        logger.error('No such file: %s', path)
+        missing.append(path)
+
+if len(missing) > 0:
+    raise SystemExit(2)
 
 for model_name in list(models_dict.keys()):
     models_dict[model_name] = models_dict[model_name].to(device)

@@ -5,12 +5,13 @@
 The system uses a custom `SegmentationDataset` class (`utils/dataset.py`) to handle image and mask loading.
 
 ### 1. Dataset Initialization
-- **Configuration**: The dataset path is defined in `config/config.yaml` (`DATASET_PATH`).
+- **Configuration**: The dataset path is defined in `config/config.yaml` (`DATASET_PATH`). The flag `PRE_SPLIT_DATASET` can be set to bypass automatic splitting.
 - **Structure**: The system expects the following directory structure:
   - `train/image/` & `train/mask/`
+  - `val/image/` & `val/mask/` (If `PRE_SPLIT_DATASET: true`)
   - `test/image/` & `test/mask/`
-- **File Matching**: Images and masks are matched by filename. Extensions `.jpg` and `.png` are supported.
-- **Class Mapping**: A `label_mapping` dictionary (derived from `counts` or fixed) ensures mask pixel values map to the correct training class indices (0 to N-1).
+- **File Matching**: Images and masks are matched by filename. Extensions `.jpg`, `.jpeg`, `.png`, `.tif`, and `.tiff` are supported.
+- **Class Mapping**: A `label_mapping` dictionary (derived from `counts` or fixed) ensures mask pixel values map to the correct training class indices (0 to N-1). When `PRE_SPLIT_DATASET` is enabled, the validation set is also scanned for classes.
 
 ### 2. Item Retrieval (`__getitem__`)
 On-the-fly processing occurs when a batch is requested:
@@ -32,8 +33,9 @@ Training is orchestrated by `train.py`, featuring K-Fold Cross-Validation, Ensem
 
 ### 2. Training Loop
 The training process (`train.py`) follows these steps:
-1. **Split**: 
-   - Uses **Stratified K-Fold** to split training data into `K` folds (default 5) to ensure class balance.
+1. **Split Strategy**: 
+   - **Pre-split Data:** If `PRE_SPLIT_DATASET: true`, training runs entirely on the `train/` directory and validation entirely on the `val/` directory. `K_FOLDS` is forced to 1, and `ENSEMBLE` is disabled.
+   - **Stratified K-Fold:** If `PRE_SPLIT_DATASET: false`, it uses Stratified K-Fold (or simple train_test_split if `K_FOLDS=1`) to split the `train/` data into training/validation folds to ensure class balance.
    - Calculates **Class Weights** based on pixel frequency in the training fold to handle class imbalance.
 2. **Optimization**:
    - **Loss**: configurable `DiceBCE`, `Dice`, or `CrossEntropy` (weighted).

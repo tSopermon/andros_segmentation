@@ -7,6 +7,8 @@ from utils.config_loader import load_config
 from models.model_zoo import get_models
 from evaluation.mask_utils import get_test_dataset, save_mask
 from utils.transforms import get_val_transform
+import os
+os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
 import cv2
 
 import argparse
@@ -79,8 +81,8 @@ def main():
 	# Collect masks dirs to infer number of classes
 	mask_dirs = []
 	for subset in subsets:
-		img_dir = dataset_path / subset / 'image'
-		mask_dir = dataset_path / subset / 'mask'
+		img_dir = dataset_path / subset / ('Image' if (dataset_path / subset / 'Image').exists() else 'image')
+		mask_dir = dataset_path / subset / ('Mask' if (dataset_path / subset / 'Mask').exists() else 'mask')
 		if img_dir.exists():
 			files = sorted([f for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff'))])
 			for fname in files:
@@ -91,8 +93,8 @@ def main():
 
 	# Include lowres images if requested (look under lowres/image and lowres/mask)
 	if include_lowres:
-		lowres_img_dir = dataset_path / 'lowres' / 'image'
-		lowres_mask_dir = dataset_path / 'lowres' / 'mask'
+		lowres_img_dir = dataset_path / 'lowres' / ('Image' if (dataset_path / 'lowres' / 'Image').exists() else 'image')
+		lowres_mask_dir = dataset_path / 'lowres' / ('Mask' if (dataset_path / 'lowres' / 'Mask').exists() else 'mask')
 		if lowres_img_dir.exists():
 			files = sorted([f for f in os.listdir(lowres_img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff'))])
 			for fname in files:
@@ -105,7 +107,7 @@ def main():
 	if len(image_entries) == 0:
 		test_dataset = get_test_dataset(config)
 		image_entries = [(Path(test_dataset.image_dir) / f, 'test', os.path.splitext(f)[0]) for f in test_dataset.image_files]
-		mask_dirs.append(Path(dataset_path) / 'test' / 'mask')
+		mask_dirs.append(Path(dataset_path) / 'test' / ('Mask' if (Path(dataset_path) / 'test' / 'Mask').exists() else 'mask'))
 
 	# Infer NUM_CLASSES from available mask directories
 	all_classes = set()

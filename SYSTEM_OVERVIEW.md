@@ -20,6 +20,7 @@ The Andros Segmentation project is a reproducible pipeline for multiclass image 
 
 #### 1. Training (`train.py`)
 - **Initialization:** Loads config, sets seeds, prepares datasets.
+- **Data Splitting/Validation:** Can accept datasets pre-split into train/val (`PRE_SPLIT_DATASET: true`) or perform automated Stratified K-Fold / random splits on a monolithic training folder.
 - **K-Fold:** If enabled, splits data, trains per fold, and saves fold checkpoints.
 - **Ensembling:** Optionally ensembles fold models for evaluation.
 - **Final Model:** Selects best fold configuration and retrains on the full training set for a production-ready model.

@@ -59,6 +59,12 @@ def visualize_predictions(models_dict, test_dataset, test_images, test_masks, TE
         (255, 255, 0),    # Perm. Cult
         (255, 255, 255),  # Bareland
     ]
+
+    if num_classes > len(explicit_colors):
+        rng = np.random.RandomState(42)
+        for _ in range(num_classes - len(explicit_colors)):
+            explicit_colors.append(tuple(rng.randint(0, 256, size=3)))
+
     colors = np.array(explicit_colors[:num_classes], dtype=np.uint8)
     viz_indices = np.random.choice(len(test_images), size=3, replace=False)
     num_models = len(models_dict)

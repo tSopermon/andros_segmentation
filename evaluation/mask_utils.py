@@ -21,10 +21,10 @@ def get_test_dataset(config):
         SegmentationDataset: Dataset for test images and masks.
     """
     dataset_path = config['DATASET_PATH']
-    test_img_dir = Path(dataset_path) / 'test' / 'image'
-    test_mask_dir = Path(dataset_path) / 'test' / 'mask'
-    image_files = sorted(os.listdir(test_img_dir))
-    mask_files = sorted(os.listdir(test_mask_dir))
+    test_img_dir = Path(dataset_path) / 'test' / ('Image' if (Path(dataset_path) / 'test' / 'Image').exists() else 'image')
+    test_mask_dir = Path(dataset_path) / 'test' / ('Mask' if (Path(dataset_path) / 'test' / 'Mask').exists() else 'mask')
+    image_files = sorted([f for f in os.listdir(test_img_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.tif', '.tiff'))])
+    mask_files = sorted([f for f in os.listdir(test_mask_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.tif', '.tiff'))])
     image_size = config['IMAGE_SIZE']
     test_transform = get_val_transform(image_size)
     return SegmentationDataset(test_img_dir, test_mask_dir, image_files, mask_files, transform=test_transform)
@@ -55,6 +55,13 @@ def save_mask(mask, save_path, num_classes):
         (255, 255, 0),    # Perm. Cult
         (255, 255, 255),  # Bareland
     ]
+
+    # Generate additional random distinct colors if num_classes > len(custom_colors)
+    if num_classes > len(custom_colors):
+        rng = np.random.RandomState(42)
+        for _ in range(num_classes - len(custom_colors)):
+            custom_colors.append(tuple(rng.randint(0, 256, size=3)))
+
     # Build full 256-color palette (768 values) and inject custom colors for the first N classes
     full_palette = [0] * (256 * 3)
     for i, (r, g, b) in enumerate(custom_colors[:num_classes]):
