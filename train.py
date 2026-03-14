@@ -19,7 +19,7 @@ from utils.dataset import SegmentationDataset, count_pixels, get_pixel_counts_ca
 from utils.transforms import get_train_transform, get_val_transform
 from models.model_zoo import get_models
 from training.metrics import SegmentationMetrics
-from training.train_utils import train_epoch, validate
+from training.train_utils import train_epoch, validate, apply_transfer_learning, freeze_encoder_if_requested
 from training.losses import DiceLoss, DiceBCELoss, FocalLoss
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
@@ -72,11 +72,18 @@ ENCODER_WEIGHTS = os.environ.get('ENCODER_WEIGHTS', config.get('ENCODER_WEIGHTS'
 if ENCODER_WEIGHTS in ('', 'None'):
     ENCODER_WEIGHTS = None
 
+# Transfer Learning config
+TRANSFER_LEARNING = str(os.environ.get('TRANSFER_LEARNING', config.get('TRANSFER_LEARNING', False))).lower() in ('1', 'true', 'yes')
+PRETRAINED_CHECKPOINT_DIR = os.environ.get('PRETRAINED_CHECKPOINT_DIR', config.get('PRETRAINED_CHECKPOINT_DIR', 'checkpoints/'))
+FREEZE_ENCODER = str(os.environ.get('FREEZE_ENCODER', config.get('FREEZE_ENCODER', False))).lower() in ('1', 'true', 'yes')
+
 # Device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 configure_logging(level=config.get('LOGGING_LEVEL', 'INFO'))
 logger = logging.getLogger(__name__)
 logger.info(f"Using device: {device}")
+if TRANSFER_LEARNING:
+    logger.info(f"Transfer Learning ENABLED. Checkpoints dir: {PRETRAINED_CHECKPOINT_DIR}. Freeze Encoder: {FREEZE_ENCODER}")
 
 # Pre-split configurations
 PRE_SPLIT_DATASET = config.get('PRE_SPLIT_DATASET', False)
@@ -236,6 +243,12 @@ for model_name in MODEL_NAMES:
 
         # instantiate model
         model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS, specific_model=model_name)[model_name].to(device)
+        
+        if TRANSFER_LEARNING:
+            ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}_best.pth")
+            apply_transfer_learning(model, ckpt_path, device)
+            freeze_encoder_if_requested(model, FREEZE_ENCODER)
+
         optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY_GAMMA)
         
@@ -314,6 +327,16 @@ for model_name in MODEL_NAMES:
 
             # instantiate model per fold
             model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS, specific_model=model_name)[model_name].to(device)
+            
+            if TRANSFER_LEARNING:
+                fold_ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}_fold{fold_idx}_best.pth")
+                best_ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}_best.pth")
+                if os.path.exists(fold_ckpt_path):
+                    apply_transfer_learning(model, fold_ckpt_path, device)
+                else:
+                    apply_transfer_learning(model, best_ckpt_path, device)
+                freeze_encoder_if_requested(model, FREEZE_ENCODER)
+
             optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
             scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY_GAMMA)
             
@@ -443,6 +466,9 @@ for model_name in MODEL_NAMES:
                 logger.info('Loaded weights from %s to initialize full-data retrain', best_fold_ckpt)
             except Exception:
                 logger.warning('Failed to load checkpoint %s — training from scratch', best_fold_ckpt)
+
+        if TRANSFER_LEARNING:
+            freeze_encoder_if_requested(model, FREEZE_ENCODER)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY_GAMMA)

@@ -1,11 +1,11 @@
-DATASET_PATH: "/home/tsopermon/Desktop/Benchmark Datasets/HexaLCSeg_10k/"
+DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset Grayscale/"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
-PRE_SPLIT_DATASET: true
-BATCH_SIZE: 8
-MAX_EPOCHS: 80
+PRE_SPLIT_DATASET: false
+BATCH_SIZE: 4
+MAX_EPOCHS: 200
 LEARNING_RATE: 0.0001
 LR_DECAY_GAMMA: 0.95
-IMAGE_SIZE: 256
+IMAGE_SIZE: 512
 NUM_WORKERS: 0
 USE_AUGMENTATION: false
 PATIENCE: 20
@@ -16,7 +16,7 @@ LR_PATIENCE_SCALE: 1.5
 BACKBONE: resnet50 # se_resnext50_32x4d: imagenet
 LOGGING_LEVEL: INFO
 # K-fold cross-validation: number of folds to use during training (1 = no k-fold)
-K_FOLDS: 1
+K_FOLDS: 5
 # If true, ensemble fold checkpoints for final evaluation
 ENSEMBLE: true
 # Encoder weights to use for backbones (null/None to disable pretrained weights)
@@ -38,3 +38,13 @@ USE_DEEPLABV3_ORIGINAL: false
 MODEL_SET: standard
 # Loss function: 'CrossEntropy', 'Dice', 'Focal' or 'DiceBCE' (Dice + CrossEntropy)
 LOSS_FUNCTION: 'DiceBCE'
+
+# -----------------------------------------------------------------------------
+# Transfer Learning / Fine-Tuning
+# -----------------------------------------------------------------------------
+# When true, initialize models with weights from a pretrained checkpoint.
+TRANSFER_LEARNING: true
+# Directory where pretrained checkpoints are located. Checkpoints should be named <model_name>_best.pth
+PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'
+# When true, freeze the encoder (downsampling path) weights during training.
+FREEZE_ENCODER: false

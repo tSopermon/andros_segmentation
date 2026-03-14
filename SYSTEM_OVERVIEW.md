@@ -14,6 +14,7 @@ The Andros Segmentation project is a reproducible pipeline for multiclass image 
     - Global random seeding for reproducibility.
     - Early stopping and checkpointing (best fold/best overall).
     - K-Fold Cross-Validation and Ensemble support.
+    - **Transfer Learning:** Supports fine-tuning from previously trained checkpoints with automatic shape mismatch handling and optional encoder freezing.
 - **Evaluation:** Automated metric computation (IoU, F1, Precision, Recall) and visualization generation.
 
 ### Workflows

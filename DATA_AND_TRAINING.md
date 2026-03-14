@@ -17,7 +17,8 @@ The system uses a custom `SegmentationDataset` class (`utils/dataset.py`) to han
 On-the-fly processing occurs when a batch is requested:
 1. **Image Loading**: Images are loaded via OpenCV and converted from BGR to RGB.
 2. **Mask Loading**: Masks are loaded in grayscale.
-3. **Augmentation**: If enabled (`val` or `train` with augmentations), Albumentations transforms are applied (e.g., matching flips, crops, or color changes) to both image and mask.
+3. **Augmentation**: If enabled (`val` or `train` with augmentations), Albumentations transforms are applied (e.g., matching flips, crops, or color changes) to both image and mask. 
+   - **Validation**: Use `python evaluation/visualize_augmentation.py` to generate a visual report of applied augmentations in `outputs/debug/augmentation_validation.png`.
 4. **Normalization**: Images are normalized (typically to `[0, 1]` or ImageNet stats via transforms) and converted to PyTorch tensors `(C, H, W)`. Masks become Long tensors `(H, W)`.
 
 ## Model Training Workflow
@@ -46,6 +47,10 @@ The training process (`train.py`) follows these steps:
    - Tracks metrics: **mIoU**, Precision, Recall, F1.
    - **Early Stopping**: Triggered if validation mIoU stops improving for `PATIENCE` epochs.
 4. **Checkpointing**: Saves the best model state (`_best.pth`) for each fold.
+5. **Transfer Learning (Fine-Tuning)**:
+    - If `TRANSFER_LEARNING: true` is set, the system attempts to load weights from the specified `PRETRAINED_CHECKPOINT_DIR`.
+    - **Shape Mismatch Handling**: The loader automatically filters out layers with mismatched tensor shapes (e.g. if the pretrained model had 5 classes and the new dataset has 2, the classifier layer is safely skipped while others are loaded).
+    - **Encoder Freezing**: If `FREEZE_ENCODER: true` is enabled, the backbone/encoder weights are frozen (`requires_grad=False`), forcing the model to only train the decoder/classifier layers.
 
 ### 3. Ensembling & Retraining
 - **Ensemble**: Optionally averages predictions from all K-fold best models on the test set.

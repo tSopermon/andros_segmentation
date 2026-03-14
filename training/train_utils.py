@@ -20,6 +20,10 @@ def train_epoch(model, train_loader, criterion, optimizer, device, metrics=None,
     return _run_epoch(model, train_loader, criterion, device, optimizer, metrics, epoch, max_epochs, lr, phase, is_train=True)
 import torch
 from tqdm import tqdm
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 def _run_epoch(model, loader, criterion, device, optimizer=None, metrics=None, epoch=None, max_epochs=None, lr=None, phase='Training', is_train=True):
     """
@@ -135,3 +139,48 @@ def evaluate_model(model, loader, device, metrics):
             outputs = model(images)
             metrics.update(outputs, masks)
     return metrics.compute_metrics()
+
+# Transfer Learning Helpers
+def apply_transfer_learning(model, checkpoint_path, device):
+    if not os.path.exists(checkpoint_path):
+        logger.warning(f"Transfer Learning requested, but checkpoint not found: {checkpoint_path}")
+        return
+    try:
+        state_dict = torch.load(checkpoint_path, map_location=device)
+        model_dict = model.state_dict()
+        
+        # Filter out mismatched shapes
+        filtered_dict = {k: v for k, v in state_dict.items() if k in model_dict and v.shape == model_dict[k].shape}
+        mismatched_keys = set(state_dict.keys()) - set(filtered_dict.keys())
+        
+        model.load_state_dict(filtered_dict, strict=False)
+        logger.info(f"Loaded pretrained weights from {checkpoint_path}. Skipped {len(mismatched_keys)} mismatched layers (e.g. final classifier).")
+    except Exception as e:
+        logger.error(f"Failed to load checkpoint '{checkpoint_path}': {e}")
+
+def freeze_encoder_if_requested(model, freeze: bool):
+    if not freeze:
+        return
+    # Determine the encoder/backbone part based on architecture
+    encoder = None
+    if hasattr(model, 'encoder'):
+        # SMP models
+        encoder = model.encoder
+    elif hasattr(model, 'down_conv') and hasattr(model, 'middle_conv'):
+        # UNet_original (actual implementation)
+        model.down_conv.requires_grad_(False)
+        model.middle_conv.requires_grad_(False)
+        logger.info("Froze UNet_original encoder layers (down_conv, middle_conv).")
+        return
+    elif hasattr(model, 'backbone'):
+        # Original DeepLab wrappers may have backbone
+        encoder = model.backbone
+    elif hasattr(model, 'base') and hasattr(model.base, 'backbone'):
+        # DeepLabV3_original wrapper
+        encoder = model.base.backbone
+        
+    if encoder is not None:
+        encoder.requires_grad_(False)
+        logger.info("Froze encoder weights.")
+    else:
+        logger.warning("Could not identify encoder to freeze for this model.")

@@ -14,6 +14,7 @@ For a detailed explanation of the data loading and training process, see [DATA_A
 - **Data Loading:** Efficient loading with caching and optimized workers.
 - **Augmentation:** Comprehensive pipeline (Geometric, Pixel-level, Noise) using Albumentations.
 - **Training:** Mixed precision (AMP), global reproducibility, early stopping, and checkpointing.
+- **Transfer Learning:** Fine-tune from existing checkpoints with automatic shape mismatch handling (useful for varying class counts) and encoder freezing via `TRANSFER_LEARNING` config.
 - **Evaluation:** Automated generation of metrics, confusion matrices, and visualizations.
 
 ## Installation
@@ -65,6 +66,10 @@ python train.py --config config/config.yaml
 - **K-Fold Cross-Validation:** Set `K_FOLDS > 1` in config.
 - **Ensembling:** Set `ENSEMBLE: true` in config.
 - **Model Selection:** Controlled via `MODEL_SET` in config (`standard`, `originals`, `all`).
+- **Transfer Learning:** Settings in `config.yaml`:
+    - `TRANSFER_LEARNING: true`
+    - `PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'`
+    - `FREEZE_ENCODER: true/false`
 
 ### Evaluation
 ```bash
@@ -83,6 +88,12 @@ python generate_masks.py --config config/config.yaml
 python evaluation/visualize_history.py
 ```
 - Visualizes loss and metric trends from `outputs/training_history.npy`.
+
+### Augmentation Visualization
+```bash
+python evaluation/visualize_augmentation.py
+```
+- Generates a grid of original vs. augmented image-mask pairs in `outputs/debug/augmentation_validation.png` to assess augmentation methods.
 
 ## Project Structure
 - `config/`: Configuration files (YAML).
