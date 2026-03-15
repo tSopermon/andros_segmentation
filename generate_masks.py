@@ -1,4 +1,5 @@
 import os
+os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
 import torch
 import yaml
 import numpy as np
@@ -7,8 +8,6 @@ from utils.config_loader import load_config
 from models.model_zoo import get_models
 from evaluation.mask_utils import get_test_dataset, save_mask
 from utils.transforms import get_val_transform
-import os
-os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
 import cv2
 
 import argparse

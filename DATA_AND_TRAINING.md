@@ -39,7 +39,7 @@ The training process (`train.py`) follows these steps:
    - **Stratified K-Fold:** If `PRE_SPLIT_DATASET: false`, it uses Stratified K-Fold (or simple train_test_split if `K_FOLDS=1`) to split the `train/` data into training/validation folds to ensure class balance.
    - Calculates **Class Weights** based on pixel frequency in the training fold to handle class imbalance.
 2. **Optimization**:
-   - **Loss**: configurable `DiceBCE`, `Dice`, or `CrossEntropy` (weighted).
+   - **Loss**: configurable `DiceBCE`, `Dice`, `Focal`, or `CrossEntropy` (weighted). Also includes **`DiceFocal`**: A highly tunable combination of Dice and Focal loss configurable via `DICE_WEIGHT` and `FOCAL_WEIGHT` in config.
    - **Optimizer**: Adam with `ExponentialLR` scheduling.
    - **Precision**: Uses `torch.amp` (Automatic Mixed Precision) for memory efficiency and speed.
 3. **Validation & Monitoring**:

@@ -11,6 +11,7 @@ Outputs:
     - Training history in outputs/training_history.npy
 """
 import os
+os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
 import torch
 import numpy as np
 from pathlib import Path
@@ -20,14 +21,15 @@ from utils.transforms import get_train_transform, get_val_transform
 from models.model_zoo import get_models
 from training.metrics import SegmentationMetrics
 from training.train_utils import train_epoch, validate, apply_transfer_learning, freeze_encoder_if_requested
-from training.losses import DiceLoss, DiceBCELoss, FocalLoss
+from training.losses import DiceLoss, DiceBCELoss, FocalLoss, DiceFocalLoss
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
 from sklearn.model_selection import train_test_split
 import cv2
 import random
 import logging
-from utils.logging_config import configure_logging
+import datetime
+from utils.logging_config import configure_logging, add_file_handler
 from sklearn.model_selection import StratifiedKFold
 import warnings
 import argparse
@@ -81,9 +83,30 @@ FREEZE_ENCODER = str(os.environ.get('FREEZE_ENCODER', config.get('FREEZE_ENCODER
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 configure_logging(level=config.get('LOGGING_LEVEL', 'INFO'))
 logger = logging.getLogger(__name__)
-logger.info(f"Using device: {device}")
+
+# ── File logging ──────────────────────────────────────────────────────────────
+_run_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+_log_file = os.path.join("logs", f"train_{_run_ts}.log")
+add_file_handler(_log_file, level=config.get('LOGGING_LEVEL', 'INFO'))
+logger.info("Log file: %s", os.path.abspath(_log_file))
+
+# ── Configuration summary ─────────────────────────────────────────────────────
+logger.info("=" * 70)
+logger.info("TRAINING CONFIGURATION")
+logger.info("=" * 70)
+logger.info("Config file : %s", args.config)
+logger.info("Run started : %s", datetime.datetime.now().isoformat(sep=' ', timespec='seconds'))
+logger.info("Seed        : %d", SEED)
+logger.info("Device      : %s", device)
+logger.info("-" * 70)
+_max_key = max(len(k) for k in config) if config else 0
+for _key, _val in sorted(config.items()):
+    logger.info("  %-*s : %s", _max_key, _key, _val)
+logger.info("=" * 70)
+
+logger.info("Using device: %s", device)
 if TRANSFER_LEARNING:
-    logger.info(f"Transfer Learning ENABLED. Checkpoints dir: {PRETRAINED_CHECKPOINT_DIR}. Freeze Encoder: {FREEZE_ENCODER}")
+    logger.info("Transfer Learning ENABLED. Checkpoints dir: %s. Freeze Encoder: %s", PRETRAINED_CHECKPOINT_DIR, FREEZE_ENCODER)
 
 # Pre-split configurations
 PRE_SPLIT_DATASET = config.get('PRE_SPLIT_DATASET', False)
@@ -265,6 +288,10 @@ for model_name in MODEL_NAMES:
         if loss_fn_name == 'DiceBCE':
             # Use combined Dice + CrossEntropy (weighted)
             criterion = DiceBCELoss(weight=class_weights_tensor)
+        elif loss_fn_name == 'DiceFocal':
+            dice_w = float(config.get('DICE_WEIGHT', 1.0))
+            focal_w = float(config.get('FOCAL_WEIGHT', 1.0))
+            criterion = DiceFocalLoss(weight=class_weights_tensor, dice_weight=dice_w, focal_weight=focal_w)
         elif loss_fn_name == 'Dice':
              criterion = DiceLoss() 
         elif loss_fn_name == 'Focal':
@@ -353,6 +380,10 @@ for model_name in MODEL_NAMES:
             loss_fn_name = config.get('LOSS_FUNCTION', 'CrossEntropy')
             if loss_fn_name == 'DiceBCE':
                 criterion = DiceBCELoss(weight=class_weights_tensor)
+            elif loss_fn_name == 'DiceFocal':
+                dice_w = float(config.get('DICE_WEIGHT', 1.0))
+                focal_w = float(config.get('FOCAL_WEIGHT', 1.0))
+                criterion = DiceFocalLoss(weight=class_weights_tensor, dice_weight=dice_w, focal_weight=focal_w)
             elif loss_fn_name == 'Dice':
                 criterion = DiceLoss()
             elif loss_fn_name == 'Focal':
@@ -487,6 +518,10 @@ for model_name in MODEL_NAMES:
         loss_fn_name = config.get('LOSS_FUNCTION', 'CrossEntropy')
         if loss_fn_name == 'DiceBCE':
             criterion = DiceBCELoss(weight=class_weights_tensor_full)
+        elif loss_fn_name == 'DiceFocal':
+            dice_w = float(config.get('DICE_WEIGHT', 1.0))
+            focal_w = float(config.get('FOCAL_WEIGHT', 1.0))
+            criterion = DiceFocalLoss(weight=class_weights_tensor_full, dice_weight=dice_w, focal_weight=focal_w)
         elif loss_fn_name == 'Dice':
              criterion = DiceLoss()
         elif loss_fn_name == 'Focal':

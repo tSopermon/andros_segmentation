@@ -69,4 +69,4 @@ The system is designed to "run and report". Entry scripts automatically save all
 ## Extending the System
 - **Adding Models:** Register new architectures in `models/model_zoo.py`.
 - **New Metrics:** Add computations to `training/metrics.py`.
-- **Custom Losses:** Implement in `training/losses.py` and register in `train.py`.
+- **Custom Losses:** Implement in `training/losses.py` and register in `train.py`. (Available: `CrossEntropy`, `Dice`, `Focal`, `DiceBCE`, `DiceFocal`).
