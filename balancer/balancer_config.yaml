@@ -1,0 +1,16 @@
+# Configuration for creating balanced dataset splits
+# Raw dataset containing Image and Mask subdirectories (or flat if configurable)
+SOURCE_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset"
+# Where the train, val, test subsets will be copied
+OUTPUT_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/Andros_Dataset_Balanced"
+
+IMAGE_SUBDIR: "image"
+MASK_SUBDIR: "mask"
+
+SPLIT_RATIOS:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+
+# Optional: Set this to false to scan image by image if all masks aren't mapped
+# Or you can let the script auto-detect all possible classes.
