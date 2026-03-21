@@ -1,11 +1,18 @@
 import os
+import sys
+from pathlib import Path
+
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from utils.transforms import get_train_transform
 from utils.config_loader import load_config
-from pathlib import Path
 
 def visualize_augmentations(image_path, mask_path, config_path='config/config.yaml', num_samples=5):
     config = load_config(config_path)
