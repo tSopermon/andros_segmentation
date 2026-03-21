@@ -97,77 +97,100 @@ def make_dirs(base_path, subdirs):
 
 def balance_split(cache, total_counts, split_ratios):
     """
-    Greedy algorithm to distribute images across splits keeping class distributions similar.
-    We iterate over images and place each one in the split where its inclusion 
-    minimizes the divergence from the target split ratios and class distribution.
+    Simulated Annealing/Swap-based algorithm to distribute images across splits.
+    This guarantees exact file counts while minimizing the distribution error.
     """
     splits = ['train', 'val', 'test']
     ratios = [split_ratios['train'], split_ratios['val'], split_ratios['test']]
-    
-    # Initialize trackers
-    split_counts = {s: np.zeros_like(total_counts) for s in splits}
     target_probs = total_counts / total_counts.sum()
     
-    # Target capacity (in terms of total dataset files)
     num_files = len(cache)
-    split_files = {s: [] for s in splits}
+    all_files = list(cache.keys())
+    
+    # Calculate exact integer target sizes for each split
     target_files = {s: int(num_files * r) for s, r in zip(splits, ratios)}
     
-    # Sort files by rarity of classes or just total 'foreground' pixels to place large ones first
-    # We will score by frequency of rarest class present.
-    # Inverse of global distribution:
-    class_weights = 1.0 / (target_probs + 1e-6)
-    
-    def score_image(m_file):
-        cnts = cache[m_file]
-        return np.sum(cnts * class_weights)
+    # Distribute the remainder (due to int rounding) to the largest target
+    remainder = num_files - sum(target_files.values())
+    if remainder > 0:
+        largest_split = max(target_files, key=target_files.get)
+        target_files[largest_split] += remainder
         
-    sorted_files = sorted(cache.keys(), key=score_image, reverse=True)
+    # Initial random assignment to meet exact sizes
+    np.random.seed(42)  # For reproducibility, or remove for true random
+    np.random.shuffle(all_files)
     
-    for m_file in sorted_files:
-        counts = cache[m_file]
-        best_split = None
-        best_score = float('inf')
+    split_files = {s: [] for s in splits}
+    start = 0
+    for s in splits:
+        end = start + target_files[s]
+        split_files[s] = all_files[start:end]
+        start = end
         
-        for s in splits:
-            # If a split already has more files than its exact share, heavily penalize 
-            # to prevent it from absorbing all smaller images in corner cases
-            if len(split_files[s]) >= target_files[s] + max(1, num_files * 0.05):
-                continue
-                
-            simulated_counts = split_counts[s] + counts
-            simulated_total = np.sum(simulated_counts)
+    def get_split_counts(s_files):
+        counts = np.zeros_like(total_counts)
+        for f in s_files:
+            counts += cache[f]
+        return counts
+        
+    def evaluate_error(s_files):
+        counts = get_split_counts(s_files)
+        total = np.sum(counts)
+        if total == 0:
+            return float('inf')
+        probs = counts / total
+        # Weight differences inversely to target_probs to prioritize rare classes
+        diffs = np.abs(probs - target_probs)
+        weighted_diffs = diffs / (target_probs + 1e-4) 
+        return np.mean(weighted_diffs)
+        
+    def evaluate_total_error(sf_dict):
+        return sum(evaluate_error(sf_dict[s]) for s in splits)
+
+    # Hill-climbing / swap optimization
+    current_error = evaluate_total_error(split_files)
+    logger.info(f"Initial random split error: {current_error:.4f}")
+    
+    # Try 10,000 random swaps to see if they improve the distribution
+    patience = 0
+    for iteration in range(10000):
+        # Pick two different splits at random
+        s1, s2 = np.random.choice(splits, 2, replace=False)
+        
+        # If one is empty, skip
+        if not split_files[s1] or not split_files[s2]:
+            continue
             
-            if simulated_total == 0:
-                score = 0
-            else:
-                simulated_probs = simulated_counts / simulated_total
-                # We want the simulated probability to match target probabilities
-                # Calculate MSE
-                mse = np.mean((simulated_probs - target_probs) ** 2)
-                
-                # Heavy penalty if we exceed the target number of files for a split
-                file_deficit = target_files[s] - len(split_files[s])
-                
-                if file_deficit <= 0:
-                    size_penalty = 1000.0  # Big penalty for exceeding target sizes
-                else:
-                    current_ratio = (len(split_files[s]) + 1) / num_files
-                    target_ratio = target_files[s] / num_files
-                    size_penalty = abs(current_ratio - target_ratio) * 10
-                
-                score = mse + size_penalty
-                
-            if score < best_score:
-                best_score = score
-                best_split = s
-                
-        # If tolerance blocked all, fallback to the one with least files relative to target
-        if best_split is None:
-            best_split = min(splits, key=lambda x: len(split_files[x]) / (target_files[x] + 1))
+        # Pick one file from each to swap
+        idx1 = np.random.randint(len(split_files[s1]))
+        idx2 = np.random.randint(len(split_files[s2]))
+        
+        f1 = split_files[s1][idx1]
+        f2 = split_files[s2][idx2]
+        
+        # Simulate swap
+        split_files[s1][idx1] = f2
+        split_files[s2][idx2] = f1
+        
+        new_error = evaluate_total_error(split_files)
+        
+        if new_error < current_error:
+            # Keep swap
+            current_error = new_error
+            patience = 0
+        else:
+            # Revert swap
+            split_files[s1][idx1] = f1
+            split_files[s2][idx2] = f2
+            patience += 1
             
-        split_counts[best_split] += counts
-        split_files[best_split].append(m_file)
+        if patience > 2000:  # If we haven't found an improvement in 2000 tries, we've likely converged
+            break
+            
+    logger.info(f"Final optimized split error: {current_error:.4f}")
+    
+    # Final counts for reporting
+    split_counts = {s: get_split_counts(split_files[s]) for s in splits}
         
     return split_files, split_counts
 
