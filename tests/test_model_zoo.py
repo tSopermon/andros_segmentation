@@ -18,7 +18,7 @@ def test_model_forward_pass():
     from models.model_zoo import get_models
     import torch
     models = get_models(num_classes=2)
-    dummy_input = torch.randn(2, 3, 128, 128)  # Larger batch and spatial size
+    dummy_input = torch.randn(2, 3, 224, 224)  # Larger batch and spatial size
     for name, model in models.items():
         out = model(dummy_input)
         assert out.shape[0] == 2

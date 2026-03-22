@@ -48,16 +48,24 @@ def main():
 	# originals when required, but restore the environment after obtaining models.
 	model_set = config.get('MODEL_SET', 'standard')
 
-	# Build the checkpoint mapping; include original checkpoints only when MODEL_SET requires them
+	# Build the checkpoint mapping lookup
 	local_model_checkpoints_map = dict(MODEL_CHECKPOINTS)
-	if model_set in ('originals', 'all'):
-		local_model_checkpoints_map['DeepLabV1_original'] = 'DeepLabV1_original_best.pth'
-		local_model_checkpoints_map['DeepLabV2_original'] = 'DeepLabV2_original_best.pth'
-		local_model_checkpoints_map['DeepLabV3_original'] = 'DeepLabV3_original_best.pth'
+	local_model_checkpoints_map['DeepLabV1_original'] = 'DeepLabV1_original_best.pth'
+	local_model_checkpoints_map['DeepLabV2_original'] = 'DeepLabV2_original_best.pth'
+	local_model_checkpoints_map['DeepLabV3_original'] = 'DeepLabV3_original_best.pth'
+	local_model_checkpoints_map['MaxViTSmallUNet'] = 'MaxViTSmallUNet_best.pth'
 
 	# Selection controlled by config only: choose the set of models to generate masks for
 	STANDARD_MODELS = ['DeepLabV3', 'DeepLabV3Plus', 'UNet', 'UNetPlusPlus']
-	ORIGINAL_MODELS = ['UNet_original', 'DeepLabV1_original', 'DeepLabV2_original', 'DeepLabV3_original']
+	
+	active_originals = []
+	if config.get('USE_UNET_ORIGINAL', False): active_originals.append('UNet_original')
+	if config.get('USE_DEEPLABV1_ORIGINAL', False): active_originals.append('DeepLabV1_original')
+	if config.get('USE_DEEPLABV2_ORIGINAL', False): active_originals.append('DeepLabV2_original')
+	if config.get('USE_DEEPLABV3_ORIGINAL', False): active_originals.append('DeepLabV3_original')
+	if config.get('USE_MAXVIT_UNET', False): active_originals.append('MaxViTSmallUNet')
+	ORIGINAL_MODELS = active_originals
+
 	if model_set == 'standard':
 		local_model_checkpoints = {k: local_model_checkpoints_map[k] for k in STANDARD_MODELS if k in local_model_checkpoints_map}
 	elif model_set == 'originals':
@@ -125,17 +133,19 @@ def main():
 
 	# Temporarily set env vars so get_models will register originals when required,
 	# but avoid leaving these env vars set globally during test collection.
-	old_env = {k: os.environ.get(k) for k in ('USE_UNET_ORIGINAL', 'USE_DEEPLABV1_ORIGINAL', 'USE_DEEPLABV2_ORIGINAL', 'USE_DEEPLABV3_ORIGINAL')}
+	old_env = {k: os.environ.get(k) for k in ('USE_UNET_ORIGINAL', 'USE_DEEPLABV1_ORIGINAL', 'USE_DEEPLABV2_ORIGINAL', 'USE_DEEPLABV3_ORIGINAL', 'USE_MAXVIT_UNET')}
 	try:
 		if model_set in ('originals', 'all'):
 			os.environ['USE_UNET_ORIGINAL'] = 'true'
 			os.environ['USE_DEEPLABV1_ORIGINAL'] = 'true'
 			os.environ['USE_DEEPLABV2_ORIGINAL'] = 'true'
 			os.environ['USE_DEEPLABV3_ORIGINAL'] = 'true'
+			os.environ['USE_MAXVIT_UNET'] = 'true'
 		else:
 			os.environ['USE_DEEPLABV1_ORIGINAL'] = str(config.get('USE_DEEPLABV1_ORIGINAL', False)).lower()
 			os.environ['USE_DEEPLABV2_ORIGINAL'] = str(config.get('USE_DEEPLABV2_ORIGINAL', False)).lower()
 			os.environ['USE_DEEPLABV3_ORIGINAL'] = str(config.get('USE_DEEPLABV3_ORIGINAL', False)).lower()
+			os.environ['USE_MAXVIT_UNET'] = str(config.get('USE_MAXVIT_UNET', False)).lower()
 
 		BACKBONE = config.get('BACKBONE', 'resnet101')
 		models_dict = get_models(NUM_CLASSES, backbone=BACKBONE)

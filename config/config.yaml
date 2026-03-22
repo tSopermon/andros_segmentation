@@ -1,8 +1,8 @@
 DATASET_PATH: "/home/tsopermon/Desktop/Benchmark Datasets/HexaLCSeg_10k"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
 PRE_SPLIT_DATASET: true
-BATCH_SIZE: 8
-MAX_EPOCHS: 100
+BATCH_SIZE: 4
+MAX_EPOCHS: 10
 LEARNING_RATE: 0.0001
 LR_DECAY_GAMMA: 0.95
 IMAGE_SIZE: 256
@@ -31,11 +31,12 @@ USE_UNET_ORIGINAL: false
 USE_DEEPLABV1_ORIGINAL: false
 USE_DEEPLABV2_ORIGINAL: false
 USE_DEEPLABV3_ORIGINAL: false
+USE_MAXVIT_UNET: true
 # Model selection mode: one of `standard`, `originals`, or `all`.
 # - `standard`: use the standard SMP-backed models (DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus).
-# - `originals`: use only original-paper implementations (`UNet_original`, `DeepLabV1_original`, `DeepLabV2_original`, `DeepLabV3_original`).
+# - `originals`: use only original-paper and custom implementations (`UNet_original`, `DeepLabV1_original`, `DeepLabV2_original`, `DeepLabV3_original`, `MaxViTSmallUNet`).
 # - `all`: train/evaluate both standard and original implementations.
-MODEL_SET: standard
+MODEL_SET: originals
 # Loss function: 'CrossEntropy', 'Dice', 'Focal', 'DiceBCE' (Dice + CrossEntropy), or 'DiceFocal'
 LOSS_FUNCTION: 'DiceFocal'
 DICE_WEIGHT: 1.0

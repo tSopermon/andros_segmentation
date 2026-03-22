@@ -11,3 +11,4 @@ seaborn
 pyyaml
 torchvision
 encoding
+timm

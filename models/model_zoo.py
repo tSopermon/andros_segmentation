@@ -8,6 +8,7 @@ that unit tests and lightweight workflows can still run.
 from .unet_original import UNet as UNetOriginal
 from .deeplabv1_original import DeepLabV1_LargeFOV as DeepLabV1Original
 from .deeplabv2_original import DeepLabV2 as DeepLabV2Original
+from .maxvit_unet import MaxViTSmallUNet
 
 try:
     import segmentation_models_pytorch as smp
@@ -145,5 +146,12 @@ def get_models(num_classes: int, backbone: str = 'resnet101', encoder_weights: s
             models_dict['DeepLabV3_original'] = DeepLabV3Wrapper(hub_model)
         except Exception:
             models_dict['DeepLabV3_original'] = _DummyModel(in_channels=3, classes=num_classes)
+
+    if should_include('MaxViTSmallUNet') and os.environ.get('USE_MAXVIT_UNET', 'false').lower() in ('1', 'true', 'yes'):
+        try:
+            pretrained = encoder_weights is not None and str(encoder_weights).lower() not in ['none', 'null', 'false']
+            models_dict['MaxViTSmallUNet'] = MaxViTSmallUNet(in_channels=3, out_channels=num_classes, pretrained=pretrained)
+        except Exception:
+            models_dict['MaxViTSmallUNet'] = _DummyModel(in_channels=3, classes=num_classes)
 
     return models_dict
