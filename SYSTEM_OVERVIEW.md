@@ -7,13 +7,14 @@ The Andros Segmentation project is a reproducible pipeline for multiclass image 
 
 ### Core Components
 - **Configuration:** YAML-based configuration (`config/config.yaml`) decoupled from code.
-- **Data Pipeline:** Custom `Dataset` class handling image loading, class mapping, and augmentations (Albumentations). Supports on-the-fly caching for efficiency.
+- **Data Pipeline:** Custom `Dataset` class handling image loading, class mapping, and augmentations (Albumentations). Supports on-the-fly caching for efficiency and `DualStreamDataset` for concurrent labeled/unlabeled loading.
 - **Model Zoo:** Lazy-loaded models including SMP-backed architectures (DeepLabV3, UNet, etc.) and native paper implementations.
 - **Training Engine:** 
     - Loop with mixed precision (AMP) support.
     - Global random seeding for reproducibility.
     - Early stopping and checkpointing (best fold/best overall).
     - K-Fold Cross-Validation and Ensemble support.
+    - **Teacher-Student Framework**: Active Student model learns from Ground Truth and frozen Teacher-generated Pseudo-Labels with confidence-based filtering (`IGNORE_INDEX`).
     - **Transfer Learning:** Supports fine-tuning from previously trained checkpoints with automatic shape mismatch handling and optional encoder freezing.
 - **Evaluation:** Automated metric computation (IoU, F1, Precision, Recall) and visualization generation.
 
@@ -23,6 +24,7 @@ The Andros Segmentation project is a reproducible pipeline for multiclass image 
 - **Initialization:** Loads config, sets seeds, prepares datasets.
 - **Data Splitting/Validation:** Can accept datasets pre-split into train/val (`PRE_SPLIT_DATASET: true`) or perform automated Stratified K-Fold / random splits on a monolithic training folder.
 - **K-Fold:** If enabled, splits data, trains per fold, and saves fold checkpoints.
+- **Self-Training:** Optionally enables semi-supervised learning via `SELF_TRAINING`. Loads an existing frozen Teacher to generate labels for massive unannotated sets.
 - **Ensembling:** Optionally ensembles fold models for evaluation.
 - **Final Model:** Selects best fold configuration and retrains on the full training set for a production-ready model.
 

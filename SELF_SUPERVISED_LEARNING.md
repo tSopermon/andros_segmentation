@@ -80,3 +80,19 @@ To maximize the representation learning quality and prevent the network from tak
 3. **`OBJECT_CENTRIC_EPOCH`**:
    - Begin with random masking to let the network learn raw color/texture heuristics.
    - Transition to object-centric masking (e.g., halfway through your `PRETRAIN_EPOCHS`) to dynamically concentrate the patches over edge-dense foreground elements. This is absolutely critical for datasets with huge, homogeneous backgrounds (e.g., satellite imagery, clear skies, empty oceans), completely neutralizing the model's ability to achieve a low MSE by simply predicting flat colors.
+
+---
+
+## Comparison: Self-Supervised vs. Semi-Supervised (Self-Training)
+
+While both techniques leverage unlabeled data, they serve different purposes in the training pipeline:
+
+| Feature | Self-Supervised (MAE) | Semi-Supervised (Self-Training) |
+| :--- | :--- | :--- |
+| **Logic** | Reconstruct masked RGB pixels. | Predict semantic labels (Pseudo-Labels). |
+| **Labels Needed** | None (Zero Labels). | Small set of Ground Truth Labels. |
+| **Stage** | Pre-training (Initial backbone formation). | Fine-tuning refinement (Boosting performance). |
+| **Architecture** | Enforced symmetry (Encoder + Decoder). | Teacher-Student (Frozen + Active). |
+| **Documentation** | `SELF_SUPERVISED_LEARNING.md` | `SELF_TRAINING.md` |
+
+For optimal results on very small datasets, the ideal workflow is to **Pre-train (SSL)** $\rightarrow$ **Fine-tune (Supervised)** $\rightarrow$ **Refine (Self-Training)**.

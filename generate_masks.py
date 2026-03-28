@@ -9,6 +9,7 @@ from utils.model_selection import get_selected_model_names
 from models.model_zoo import get_models
 from evaluation.mask_utils import get_test_dataset, save_mask
 from utils.transforms import get_val_transform
+from evaluation.visualization import apply_color_mask, get_class_colors
 import cv2
 
 import argparse
@@ -39,6 +40,8 @@ def main():
 	"""
 	parser = argparse.ArgumentParser(description='Generate segmentation masks.')
 	parser.add_argument('--config', default='config/config.yaml', help='Path to config YAML file')
+	parser.add_argument('--no-overlays', action='store_true', help='Skip generating semi-transparent mask overlays')
+	parser.add_argument('--alpha', type=float, default=0.4, help='Opacity of the mask overlay (0.0 to 1.0)')
 	args = parser.parse_args()
 
 	device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -176,6 +179,7 @@ def main():
 		model.eval()
 
 		val_transform = get_val_transform(config['IMAGE_SIZE'])
+		colors = get_class_colors(NUM_CLASSES)
 		with torch.no_grad():
 			for i, (img_path, subset_name, base_name) in enumerate(tqdm(image_entries)):
 				# Read & preprocess image
@@ -216,6 +220,19 @@ def main():
 						saved_root_preview = True
 					except Exception:
 						pass
+
+				# Generate and save overlay if requested
+				if not args.no_overlays:
+					overlay_dir = os.path.join(OUTPUTS_DIR, model_name, 'overlays', subset_name)
+					os.makedirs(overlay_dir, exist_ok=True)
+					
+					# apply_color_mask expects RGB image
+					overlay_rgb = apply_color_mask(image, pred, colors, alpha=args.alpha)
+					# Convert to BGR for saving with OpenCV
+					overlay_bgr = cv2.cvtColor(overlay_rgb, cv2.COLOR_RGB2BGR)
+					
+					overlay_filename = base_name + '_overlay.png'
+					cv2.imwrite(os.path.join(overlay_dir, overlay_filename), overlay_bgr)
 
 
 if __name__ == '__main__':

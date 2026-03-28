@@ -17,8 +17,8 @@ import numpy as np
 from pathlib import Path
 from utils.config_loader import load_config
 from utils.model_selection import get_active_original_models, get_selected_model_names
-from utils.dataset import SegmentationDataset, count_pixels, get_pixel_counts_cache
-from utils.transforms import get_train_transform, get_val_transform
+from utils.dataset import SegmentationDataset, count_pixels, get_pixel_counts_cache, DualStreamDataset
+from utils.transforms import get_train_transform, get_val_transform, get_strong_self_training_transform
 from models.model_zoo import get_models
 from training.metrics import SegmentationMetrics
 from training.train_utils import train_epoch, validate, apply_transfer_learning, freeze_encoder_if_requested
@@ -80,6 +80,12 @@ TRANSFER_LEARNING = str(os.environ.get('TRANSFER_LEARNING', config.get('TRANSFER
 PRETRAINED_CHECKPOINT_DIR = os.environ.get('PRETRAINED_CHECKPOINT_DIR', config.get('PRETRAINED_CHECKPOINT_DIR', 'checkpoints/'))
 FREEZE_ENCODER = str(os.environ.get('FREEZE_ENCODER', config.get('FREEZE_ENCODER', False))).lower() in ('1', 'true', 'yes')
 
+# Self-Training config
+SELF_TRAINING = str(os.environ.get('SELF_TRAINING', config.get('SELF_TRAINING', False))).lower() in ('1', 'true', 'yes')
+UNLABELED_IMG_PATH = Path(config.get('UNLABELED_IMG_PATH', '')) if config.get('UNLABELED_IMG_PATH', '') else None
+PSEUDO_LABEL_THRESHOLD = float(config.get('PSEUDO_LABEL_THRESHOLD', 0.90))
+IGNORE_INDEX = int(config.get('IGNORE_INDEX', -1))
+
 # Device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 configure_logging(level=config.get('LOGGING_LEVEL', 'INFO'))
@@ -108,6 +114,8 @@ logger.info("=" * 70)
 logger.info("Using device: %s", device)
 if TRANSFER_LEARNING:
     logger.info("Transfer Learning ENABLED. Checkpoints dir: %s. Freeze Encoder: %s", PRETRAINED_CHECKPOINT_DIR, FREEZE_ENCODER)
+if SELF_TRAINING:
+    logger.info("Self-Training ENABLED. Threshold: %.2f. Ignored Index: %d", PSEUDO_LABEL_THRESHOLD, IGNORE_INDEX)
 
 # Pre-split configurations
 PRE_SPLIT_DATASET = config.get('PRE_SPLIT_DATASET', False)
@@ -196,14 +204,28 @@ else:
 # Transforms
 train_transform = get_train_transform(IMAGE_SIZE, USE_AUGMENTATION)
 val_transform = get_val_transform(IMAGE_SIZE)
+strong_unl_transform = get_strong_self_training_transform(IMAGE_SIZE)
 
 # Datasets and loaders (only create the one-shot split when not using k-fold)
 if K_FOLDS == 1:
     val_img_path = VAL_IMG_PATH if PRE_SPLIT_DATASET else TRAIN_IMG_PATH
     val_mask_path = VAL_MASK_PATH if PRE_SPLIT_DATASET else TRAIN_MASK_PATH
-    train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images_split, train_masks_split, train_transform, label_mapping)
+    
+    if SELF_TRAINING and UNLABELED_IMG_PATH:
+        unlabeled_image_files = sorted([f for f in os.listdir(UNLABELED_IMG_PATH) if f.lower().endswith(image_extensions)])
+        eff_batch = max(1, BATCH_SIZE // 2)
+        train_dataset = DualStreamDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images_split, train_masks_split,
+                                          UNLABELED_IMG_PATH, unlabeled_image_files,
+                                          transform=train_transform,
+                                          unl_transform_weak=val_transform,
+                                          unl_transform_strong=strong_unl_transform,
+                                          label_mapping=label_mapping)
+        train_loader = DataLoader(train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
+    else:
+        train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images_split, train_masks_split, train_transform, label_mapping)
+        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
+        
     val_dataset = SegmentationDataset(val_img_path, val_mask_path, val_images, val_masks, val_transform, label_mapping)
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
 BACKBONE = config.get('BACKBONE', 'resnet101')
@@ -229,9 +251,21 @@ MODEL_NAMES = get_selected_model_names(config)
 def make_loaders(train_imgs, train_msks, val_imgs, val_msks):
     val_img_path = VAL_IMG_PATH if PRE_SPLIT_DATASET else TRAIN_IMG_PATH
     val_mask_path = VAL_MASK_PATH if PRE_SPLIT_DATASET else TRAIN_MASK_PATH
-    train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_imgs, train_msks, train_transform, label_mapping)
+    if SELF_TRAINING and UNLABELED_IMG_PATH:
+        unlabeled_image_files = sorted([f for f in os.listdir(UNLABELED_IMG_PATH) if f.lower().endswith(image_extensions)])
+        eff_batch = max(1, BATCH_SIZE // 2)
+        train_dataset = DualStreamDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_imgs, train_msks,
+                                          UNLABELED_IMG_PATH, unlabeled_image_files,
+                                          transform=train_transform,
+                                          unl_transform_weak=val_transform,
+                                          unl_transform_strong=strong_unl_transform,
+                                          label_mapping=label_mapping)
+        train_loader = DataLoader(train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+    else:
+        train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_imgs, train_msks, train_transform, label_mapping)
+        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+        
     val_dataset = SegmentationDataset(val_img_path, val_mask_path, val_imgs, val_msks, val_transform, label_mapping)
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
     return train_loader, val_loader
 
@@ -274,17 +308,17 @@ for model_name in MODEL_NAMES:
         loss_fn_name = config.get('LOSS_FUNCTION', 'CrossEntropy')
         if loss_fn_name == 'DiceBCE':
             # Use combined Dice + CrossEntropy (weighted)
-            criterion = DiceBCELoss(weight=class_weights_tensor)
+            criterion = DiceBCELoss(weight=class_weights_tensor, ignore_index=IGNORE_INDEX)
         elif loss_fn_name == 'DiceFocal':
             dice_w = float(config.get('DICE_WEIGHT', 1.0))
             focal_w = float(config.get('FOCAL_WEIGHT', 1.0))
-            criterion = DiceFocalLoss(weight=class_weights_tensor, dice_weight=dice_w, focal_weight=focal_w)
+            criterion = DiceFocalLoss(weight=class_weights_tensor, dice_weight=dice_w, focal_weight=focal_w, ignore_index=IGNORE_INDEX)
         elif loss_fn_name == 'Dice':
-             criterion = DiceLoss() 
+             criterion = DiceLoss(ignore_index=IGNORE_INDEX) 
         elif loss_fn_name == 'Focal':
-             criterion = FocalLoss(weight=class_weights_tensor)
+             criterion = FocalLoss(weight=class_weights_tensor, ignore_index=IGNORE_INDEX)
         else:
-             criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
+             criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor, ignore_index=IGNORE_INDEX)
              
         train_metrics = SegmentationMetrics(NUM_CLASSES)
         val_metrics = SegmentationMetrics(NUM_CLASSES)
@@ -292,11 +326,27 @@ for model_name in MODEL_NAMES:
         patience_counter = 0
         initial_lr = LEARNING_RATE
         train_loader, val_loader = make_loaders(train_images_split, train_masks_split, val_images, val_masks)
+        
+        teacher_model = None
+        if SELF_TRAINING:
+            teacher_model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=None, specific_model=model_name)[model_name].to(device)
+            pretrained_suffix = config.get('PRETRAINED_WEIGHT_SUFFIX', '_best.pth')
+            teacher_ckpt = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}{pretrained_suffix}")
+            if os.path.exists(teacher_ckpt):
+                apply_transfer_learning(teacher_model, teacher_ckpt, device)
+                logger.info("Loaded teacher model from %s", teacher_ckpt)
+            else:
+                logger.warning("Self-training enabled but teacher checkpoint not found: %s", teacher_ckpt)
+            teacher_model.eval()
+            for param in teacher_model.parameters():
+                param.requires_grad = False
+
         for epoch in range(MAX_EPOCHS):
             current_lr = optimizer.param_groups[0]['lr']
             train_loss, train_metrics_dict = train_epoch(
                 model, train_loader, criterion, optimizer, device, train_metrics,
-                epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='Training')
+                epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='Training',
+                teacher_model=teacher_model, teacher_threshold=PSEUDO_LABEL_THRESHOLD, ignore_index=IGNORE_INDEX)
             val_loss, val_metrics_dict = validate(
                 model, val_loader, criterion, device, val_metrics,
                 epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='Validation')
@@ -371,17 +421,17 @@ for model_name in MODEL_NAMES:
             
             loss_fn_name = config.get('LOSS_FUNCTION', 'CrossEntropy')
             if loss_fn_name == 'DiceBCE':
-                criterion = DiceBCELoss(weight=class_weights_tensor)
+                criterion = DiceBCELoss(weight=class_weights_tensor, ignore_index=IGNORE_INDEX)
             elif loss_fn_name == 'DiceFocal':
                 dice_w = float(config.get('DICE_WEIGHT', 1.0))
                 focal_w = float(config.get('FOCAL_WEIGHT', 1.0))
-                criterion = DiceFocalLoss(weight=class_weights_tensor, dice_weight=dice_w, focal_weight=focal_w)
+                criterion = DiceFocalLoss(weight=class_weights_tensor, dice_weight=dice_w, focal_weight=focal_w, ignore_index=IGNORE_INDEX)
             elif loss_fn_name == 'Dice':
-                criterion = DiceLoss()
+                criterion = DiceLoss(ignore_index=IGNORE_INDEX)
             elif loss_fn_name == 'Focal':
-                criterion = FocalLoss(weight=class_weights_tensor)
+                criterion = FocalLoss(weight=class_weights_tensor, ignore_index=IGNORE_INDEX)
             else:
-                criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
+                criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor, ignore_index=IGNORE_INDEX)
                 
             train_metrics = SegmentationMetrics(NUM_CLASSES)
             val_metrics = SegmentationMetrics(NUM_CLASSES)
@@ -389,11 +439,33 @@ for model_name in MODEL_NAMES:
             patience_counter = 0
             initial_lr = LEARNING_RATE
             train_loader, val_loader = make_loaders(train_imgs_fold, train_msks_fold, val_imgs_fold, val_msks_fold)
+            
+            teacher_model = None
+            if SELF_TRAINING:
+                teacher_model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=None, specific_model=model_name)[model_name].to(device)
+                pretrained_suffix = config.get('PRETRAINED_WEIGHT_SUFFIX', '_best.pth')
+                if pretrained_suffix == '_best.pth':
+                    t_ckpt = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}_fold{fold_idx}{pretrained_suffix}")
+                    if not os.path.exists(t_ckpt):
+                        t_ckpt = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}{pretrained_suffix}")
+                else:
+                    t_ckpt = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}{pretrained_suffix}")
+                    
+                if os.path.exists(t_ckpt):
+                    apply_transfer_learning(teacher_model, t_ckpt, device)
+                    logger.info("Loaded teacher model from %s", t_ckpt)
+                else:
+                    logger.warning("Self-training enabled but teacher checkpoint not found: %s", t_ckpt)
+                teacher_model.eval()
+                for param in teacher_model.parameters():
+                    param.requires_grad = False
+
             for epoch in range(MAX_EPOCHS):
                 current_lr = optimizer.param_groups[0]['lr']
                 train_loss, train_metrics_dict = train_epoch(
                     model, train_loader, criterion, optimizer, device, train_metrics,
-                    epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='Training')
+                    epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='Training',
+                    teacher_model=teacher_model, teacher_threshold=PSEUDO_LABEL_THRESHOLD, ignore_index=IGNORE_INDEX)
                 val_loss, val_metrics_dict = validate(
                     model, val_loader, criterion, device, val_metrics,
                     epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='Validation')
@@ -509,32 +581,57 @@ for model_name in MODEL_NAMES:
         
         loss_fn_name = config.get('LOSS_FUNCTION', 'CrossEntropy')
         if loss_fn_name == 'DiceBCE':
-            criterion = DiceBCELoss(weight=class_weights_tensor_full)
+            criterion = DiceBCELoss(weight=class_weights_tensor_full, ignore_index=IGNORE_INDEX)
         elif loss_fn_name == 'DiceFocal':
             dice_w = float(config.get('DICE_WEIGHT', 1.0))
             focal_w = float(config.get('FOCAL_WEIGHT', 1.0))
-            criterion = DiceFocalLoss(weight=class_weights_tensor_full, dice_weight=dice_w, focal_weight=focal_w)
+            criterion = DiceFocalLoss(weight=class_weights_tensor_full, dice_weight=dice_w, focal_weight=focal_w, ignore_index=IGNORE_INDEX)
         elif loss_fn_name == 'Dice':
-             criterion = DiceLoss()
+             criterion = DiceLoss(ignore_index=IGNORE_INDEX)
         elif loss_fn_name == 'Focal':
-             criterion = FocalLoss(weight=class_weights_tensor_full)
+             criterion = FocalLoss(weight=class_weights_tensor_full, ignore_index=IGNORE_INDEX)
         else:
-             criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor_full)
+             criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor_full, ignore_index=IGNORE_INDEX)
              
         train_metrics = SegmentationMetrics(NUM_CLASSES)
         best_train_loss = float('inf')
         patience_counter = 0
         initial_lr = LEARNING_RATE
+        
+        teacher_model = None
+        if SELF_TRAINING:
+            teacher_model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=None, specific_model=model_name)[model_name].to(device)
+            teacher_ckpt = f'checkpoints/{model_name}_best.pth'
+            if os.path.exists(teacher_ckpt):
+                apply_transfer_learning(teacher_model, teacher_ckpt, device)
+                logger.info("Loaded teacher model from %s", teacher_ckpt)
+            else:
+                logger.warning("Self-training enabled but teacher checkpoint not found: %s", teacher_ckpt)
+            teacher_model.eval()
+            for param in teacher_model.parameters():
+                param.requires_grad = False
 
         # full training loader (no held-out validation)
-        full_train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images, train_masks, train_transform, label_mapping)
-        full_train_loader = DataLoader(full_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+        if SELF_TRAINING and UNLABELED_IMG_PATH:
+            unlabeled_image_files = sorted([f for f in os.listdir(UNLABELED_IMG_PATH) if f.lower().endswith(image_extensions)])
+            eff_batch = max(1, BATCH_SIZE // 2)
+            full_train_dataset = DualStreamDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images, train_masks,
+                                              UNLABELED_IMG_PATH, unlabeled_image_files,
+                                              transform=train_transform,
+                                              unl_transform_weak=val_transform,
+                                              unl_transform_strong=strong_unl_transform,
+                                              label_mapping=label_mapping)
+            full_train_loader = DataLoader(full_train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+        else:
+            full_train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images, train_masks, train_transform, label_mapping)
+            full_train_loader = DataLoader(full_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
 
         for epoch in range(MAX_EPOCHS):
             current_lr = optimizer.param_groups[0]['lr']
             train_loss, train_metrics_dict = train_epoch(
                 model, full_train_loader, criterion, optimizer, device, train_metrics,
-                epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='FullTrain')
+                epoch=epoch+1, max_epochs=MAX_EPOCHS, lr=current_lr, phase='FullTrain',
+                teacher_model=teacher_model, teacher_threshold=PSEUDO_LABEL_THRESHOLD, ignore_index=IGNORE_INDEX)
             scheduler.step()
             
             # Store metrics for full retrain

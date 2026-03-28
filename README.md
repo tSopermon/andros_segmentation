@@ -16,6 +16,7 @@ For a detailed explanation of the data loading and training process, see [DATA_A
 - **Training:** Mixed precision (AMP), global reproducibility, early stopping, and checkpointing.
 - **Transfer Learning:** Fine-tune from existing checkpoints with automatic shape mismatch handling (useful for varying class counts) and encoder freezing via `TRANSFER_LEARNING` config.
 - **Self-Supervised Learning:** Built-in Masked Autoencoder (MAE) style pre-training for U-Net architectures to improve performance on small datasets without requiring labeled ground truth.
+- **Self-Training (Pseudo-Labeling)**: Leverages unlabeled data using a Teacher-Student framework. Confidence-based filtering and dual-stream loaders allow the model to learn from unannotated satellite imagery using reliable automated predictions. 
 - **Evaluation:** Automated generation of metrics, confusion matrices, and visualizations.
 
 ## Installation
@@ -82,7 +83,17 @@ python pretrain.py --config config/config.yaml
 - Generates both random masks and object-centric masks (using Sobel edge-density) to force high-level structural learning.
 - Controlled via `PRETRAIN_EPOCHS`, `MASK_RATIO`, `PATCH_SIZE`, and `OBJECT_CENTRIC_EPOCH`.
 - Seamlessly integrates with downstream training using `TRANSFER_LEARNING: true` and `PRETRAINED_WEIGHT_SUFFIX: '_pretrained.pth'`.
-- See [SELF_SUPERVISED_LEARNING.md](SELF_SUPERVISED_LEARNING.md) for more details.
+- See [SELF_SUPERVISED_LEARNING.md](SELF_SUPERVISED_LEARNING.md) for dedicated SSL instructions.
+
+### Self-Training (Semi-Supervised)
+```yaml
+SELF_TRAINING: true
+UNLABELED_IMG_PATH: "/path/to/unlabeled"
+```
+- Simultaneously learns from labeled data and confident Teacher-generated pseudo-labels.
+- Automatically handles dual-stream batching (50% labeled, 50% unlabeled).
+- Configurable `PSEUDO_LABEL_THRESHOLD` and `IGNORE_INDEX`.
+- See [SELF_TRAINING.md](SELF_TRAINING.md) for technical details and implementation logic.
 
 ### Evaluation
 ```bash

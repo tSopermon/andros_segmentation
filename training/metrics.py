@@ -37,9 +37,18 @@ class SegmentationMetrics:
         """
         pred = torch.argmax(pred, dim=1).cpu().numpy()
         target = target.cpu().numpy()
+        
+        # Valid mask: ignore pixels where target is an IGNORE_INDEX (e.g. -1 or 255)
+        valid_mask = ((target >= 0) & (target < self.num_classes)).astype(np.float32)
+
         for c in range(self.num_classes):
             pred_c = (pred == c).astype(np.float32)
             target_c = (target == c).astype(np.float32)
+            
+            # Mask out invalid pixels before accumulation
+            pred_c = pred_c * valid_mask
+            target_c = target_c * valid_mask
+            
             self.tp[c] += (pred_c * target_c).sum()
             self.fp[c] += (pred_c * (1 - target_c)).sum()
             self.fn[c] += ((1 - pred_c) * target_c).sum()

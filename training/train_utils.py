@@ -1,4 +1,4 @@
-def train_epoch(model, train_loader, criterion, optimizer, device, metrics=None, epoch=None, max_epochs=None, lr=None, phase='Training'):
+def train_epoch(model, train_loader, criterion, optimizer, device, metrics=None, epoch=None, max_epochs=None, lr=None, phase='Training', teacher_model=None, teacher_threshold=0.9, ignore_index=-100):
     """
     Run one training epoch.
 
@@ -17,7 +17,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device, metrics=None,
     Returns:
         tuple: (average loss, metrics dict or None)
     """
-    return _run_epoch(model, train_loader, criterion, device, optimizer, metrics, epoch, max_epochs, lr, phase, is_train=True)
+    return _run_epoch(model, train_loader, criterion, device, optimizer, metrics, epoch, max_epochs, lr, phase, is_train=True, teacher_model=teacher_model, teacher_threshold=teacher_threshold, ignore_index=ignore_index)
 import torch
 from tqdm import tqdm
 import os
@@ -25,7 +25,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def _run_epoch(model, loader, criterion, device, optimizer=None, metrics=None, epoch=None, max_epochs=None, lr=None, phase='Training', is_train=True):
+def _run_epoch(model, loader, criterion, device, optimizer=None, metrics=None, epoch=None, max_epochs=None, lr=None, phase='Training', is_train=True, teacher_model=None, teacher_threshold=0.9, ignore_index=-100):
     """
     Internal helper to run one epoch of training or validation.
 
@@ -55,9 +55,31 @@ def _run_epoch(model, loader, criterion, device, optimizer=None, metrics=None, e
     desc = f"{phase} | Epoch {epoch}/{max_epochs} | LR {lr:.2e}" if epoch and max_epochs and lr is not None else phase
     pbar = tqdm(loader, desc=desc, leave=True, dynamic_ncols=True)
     scaler = torch.amp.GradScaler(device="cuda") if device.type == 'cuda' else None
-    for images, masks in pbar:
-        images = images.to(device)
-        masks = masks.to(device)
+    for batch in pbar:
+        if len(batch) == 4:
+            l_images, l_masks, u_images_clean, u_images_aug = batch
+            l_images = l_images.to(device)
+            l_masks = l_masks.to(device)
+            u_images_clean = u_images_clean.to(device)
+            u_images_aug = u_images_aug.to(device)
+            
+            if teacher_model is not None:
+                with torch.no_grad():
+                    teacher_logits = teacher_model(u_images_clean)
+                    probabilities = torch.nn.functional.softmax(teacher_logits, dim=1)
+                    confidence, pseudo_labels = torch.max(probabilities, dim=1)
+                    pseudo_labels[confidence < teacher_threshold] = ignore_index
+                
+                images = torch.cat([l_images, u_images_aug], dim=0)
+                masks = torch.cat([l_masks, pseudo_labels], dim=0)
+            else:
+                images = l_images
+                masks = l_masks
+        else:
+            images, masks = batch
+            images = images.to(device)
+            masks = masks.to(device)
+
         if is_train:
             optimizer.zero_grad()
         if scaler is not None:

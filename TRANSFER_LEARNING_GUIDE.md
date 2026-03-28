@@ -62,6 +62,24 @@ Since we cannot modify the optimizer code to use natively split parameter groups
     python train.py --config config/config.yaml
     ```
 
+---
+
+## Stage 4: Semi-Supervised Self-Training (Performance Boost)
+
+Once you have a well-tuned model from Stage 3, you can use it as a **Teacher** to squeeze more knowledge from your **unlabeled** satellite images.
+
+1.  **Configure Dataset:** Ensure `UNLABELED_IMG_PATH` points to your mass pool of raw images.
+2.  **Configure Settings (`config/config.yaml`):**
+    *   **Enable Self-Training:** `SELF_TRAINING: true`.
+    *   **Teacher Checkpoint:** Point `PRETRAINED_CHECKPOINT_DIR` to your Stage 3 checkpoints.
+    *   **Confidence Threshold:** Set `PSEUDO_LABEL_THRESHOLD` to a high value (e.g., `0.95`) to ensure the Student only learns from very "sure" predictions.
+    *   **Learning Rate:** Use a small refinement learning rate (e.g., `1e-5`).
+3.  **Run Training:**
+    ```bash
+    python train.py --config config/config.yaml
+    ```
+4.  **Result:** The model refines its boundaries and rare-class recognition by seeing thousands of additional examples, even without ground-truth labels.
+
 ### Summary of Manual Configs
 
 | Phase | `NUM_CLASSES` | `TRANSFER_LEARNING` (`PRETRAINED_CHECKPOINT_DIR`) | `FREEZE_ENCODER` | `LEARNING_RATE` | `DATA_AUGMENTATION` |
@@ -69,3 +87,4 @@ Since we cannot modify the optimizer code to use natively split parameter groups
 | **Stage 1 (Pre-train)** | 7 | `false` | `false` | Normal (e.g., `1e-3`) | Up to workflow |
 | **Stage 2 (Head Only)** | 8 | `true` (Points to Stage 1) | `true` | Normal (e.g., `1e-3`) | `true` |
 | **Stage 3 (Full Tune)** | 8 | `true` (Points to Stage 2) | `false` | Tiny (e.g., `1e-4` or `1e-5`) | `true` |
+| **Stage 4 (Self-Train)** | 8 | `true` (Points to Stage 3) | `false` | Tiny (e.g., `1e-5`) | `true` |

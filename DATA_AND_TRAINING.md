@@ -21,6 +21,12 @@ On-the-fly processing occurs when a batch is requested:
    - **Validation**: Use `python evaluation/visualize_augmentation.py` to generate a visual report of applied augmentations in `outputs/debug/augmentation_validation.png`.
 4. **Normalization**: Images are normalized (typically to `[0, 1]` or ImageNet stats via transforms) and converted to PyTorch tensors `(C, H, W)`. Masks become Long tensors `(H, W)`.
 
+### 3. Dual Stream Loading (Self-Training)
+When `SELF_TRAINING: true` is enabled, the system switches to the `DualStreamDataset`.
+-   **Structure**: It maintains a synchronous stream of labeled `(image, mask)` pairs and unlabeled `image` samples.
+-   **Batching**: To maintain GPU memory limits, if `BATCH_SIZE=N`, the loader yields `N/2` labeled pairs and `N/2` unlabeled samples per step.
+-   **Augmentation Split**: The unlabeled stream produces two versions of the same image: a **weakly augmented** version for the Teacher (to ensure stable pseudo-labels) and a **strongly augmented** version for the Student (to force robust feature learning).
+
 ## Model Training Workflow
 
 Training is orchestrated by `train.py`, featuring K-Fold Cross-Validation, Ensembling, and Mix-Precision training.
@@ -51,6 +57,11 @@ The training process (`train.py`) follows these steps:
     - If `TRANSFER_LEARNING: true` is set, the system attempts to load weights from the specified `PRETRAINED_CHECKPOINT_DIR`.
     - **Shape Mismatch Handling**: The loader automatically filters out layers with mismatched tensor shapes (e.g. if the pretrained model had 5 classes and the new dataset has 2, the classifier layer is safely skipped while others are loaded).
     - **Encoder Freezing**: If `FREEZE_ENCODER: true` is enabled, the backbone/encoder weights are frozen (`requires_grad=False`), forcing the model to only train the decoder/classifier layers.
+5. **Semi-Supervised Learning (Self-Training)**:
+    - If `SELF_TRAINING: true`, a frozen **Teacher** model is instantiated from an existing best checkpoint.
+    - The Teacher generates pseudo-labels for the unlabeled data stream.
+    - **Confidence Thresholding**: Only pixels where the Teacher's softmax probability exceeds `PSEUDO_LABEL_THRESHOLD` are kept as labels.
+    - **Masking**: Uncertain pixels are assigned `IGNORE_INDEX` (`-1`), which masks them out of the loss calculation for the Student.
 
 ### 3. Ensembling & Retraining
 - **Ensemble**: Optionally averages predictions from all K-fold best models on the test set.

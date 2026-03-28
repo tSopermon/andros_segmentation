@@ -31,24 +31,10 @@ def apply_color_mask(image, mask, colors, alpha=0.4):
         overlay[mask_class] = overlay[mask_class] * (1 - alpha) + colors[class_id] * alpha
     return overlay.astype(np.uint8)
 
-def visualize_predictions(models_dict, test_dataset, test_images, test_masks, TEST_IMG_PATH, TEST_MASK_PATH, label_mapping, device, class_names=None):
+def get_class_colors(num_classes):
     """
-    Visualize and compare predictions from multiple models on random test images.
-
-    Args:
-        models_dict (dict): Dictionary mapping model names to model instances.
-        test_dataset (torch.utils.data.Dataset): Test dataset object.
-        test_images (list): List of test image filenames.
-        test_masks (list): List of test mask filenames.
-        logger.info("✓ Prediction overlays saved to 'outputs/prediction_overlays.png'")
-        label_mapping (dict): Mapping from original to new class labels.
-        device (torch.device): Device to run inference on.
-
-    Saves:
-        'outputs/prediction_overlays.png' with visualized predictions.
+    Get a list of RGB colors for each class.
     """
-    # Use explicit class colors provided by user (order must match class_names passed in)
-    num_classes = len(class_names) if class_names is not None else len(label_mapping)
     explicit_colors = [
         (0, 0, 255),      # Water
         (60, 16, 152),    # Woodland
@@ -65,7 +51,25 @@ def visualize_predictions(models_dict, test_dataset, test_images, test_masks, TE
         for _ in range(num_classes - len(explicit_colors)):
             explicit_colors.append(tuple(rng.randint(0, 256, size=3)))
 
-    colors = np.array(explicit_colors[:num_classes], dtype=np.uint8)
+    return np.array(explicit_colors[:num_classes], dtype=np.uint8)
+
+def visualize_predictions(models_dict, test_dataset, test_images, test_masks, TEST_IMG_PATH, TEST_MASK_PATH, label_mapping, device, class_names=None):
+    """
+    Visualize and compare predictions from multiple models on random test images.
+
+    Args:
+        models_dict (dict): Dictionary mapping model names to model instances.
+        test_dataset (torch.utils.data.Dataset): Test dataset object.
+        test_images (list): List of test image filenames.
+        test_masks (list): List of test mask filenames.
+        label_mapping (dict): Mapping from original to new class labels.
+        device (torch.device): Device to run inference on.
+
+    Saves:
+        'outputs/prediction_overlays.png' with visualized predictions.
+    """
+    num_classes = len(class_names) if class_names is not None else len(label_mapping)
+    colors = get_class_colors(num_classes)
     viz_indices = np.random.choice(len(test_images), size=3, replace=False)
     num_models = len(models_dict)
     fig, axes = plt.subplots(3, num_models + 2, figsize=(4 * (num_models + 2), 12))

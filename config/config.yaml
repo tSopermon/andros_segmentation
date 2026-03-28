@@ -2,13 +2,13 @@ DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
 PRE_SPLIT_DATASET: true
 BATCH_SIZE: 8
-MAX_EPOCHS: 150
+MAX_EPOCHS: 200
 LEARNING_RATE: 0.0001
 LR_DECAY_GAMMA: 0.95
 IMAGE_SIZE: 256
 NUM_WORKERS: 0
 USE_AUGMENTATION: true
-PATIENCE: 20
+PATIENCE: 50
 MIN_EPOCHS: 20
 MIN_DELTA: 0.0001
 LR_PATIENCE_THRESHOLD: 0.5
@@ -57,6 +57,14 @@ PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'
 PRETRAINED_WEIGHT_SUFFIX: '_best.pth'
 # When true, freeze the encoder (downsampling path) weights during training.
 FREEZE_ENCODER: false
+
+# -----------------------------------------------------------------------------
+# Self-Training / Pseudo-Labeling
+# -----------------------------------------------------------------------------
+SELF_TRAINING: true
+UNLABELED_IMG_PATH: '/home/tsopermon/Desktop/Scraped Andros (KtimaNet)/Processed Dataset/ktimatologio_all_patches/train_256'
+PSEUDO_LABEL_THRESHOLD: 0.90
+IGNORE_INDEX: -1
 
 # -----------------------------------------------------------------------------
 # Pre-training / Self-Predictive Learning
