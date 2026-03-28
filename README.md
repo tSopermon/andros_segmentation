@@ -66,6 +66,7 @@ python train.py --config config/config.yaml
 - **K-Fold Cross-Validation:** Set `K_FOLDS > 1` in config.
 - **Ensembling:** Set `ENSEMBLE: true` in config.
 - **Model Selection:** Controlled via `MODEL_SET` in config (`standard`, `originals`, `all`).
+- **Standard Model Subset:** Optionally set `STANDARD_MODELS` (list) to run only selected standard models, e.g. `['DeepLabV3', 'UNet']`.
 - **Transfer Learning:** Settings in `config.yaml`:
     - `TRANSFER_LEARNING: true`
     - `PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'`

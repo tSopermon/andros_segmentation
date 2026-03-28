@@ -5,6 +5,7 @@ import yaml
 import numpy as np
 from tqdm import tqdm
 from utils.config_loader import load_config
+from utils.model_selection import get_selected_model_names
 from models.model_zoo import get_models
 from evaluation.mask_utils import get_test_dataset, save_mask
 from utils.transforms import get_val_transform
@@ -56,25 +57,12 @@ def main():
 	local_model_checkpoints_map['MaxViTSmallUNet'] = 'MaxViTSmallUNet_best.pth'
 
 	# Selection controlled by config only: choose the set of models to generate masks for
-	STANDARD_MODELS = ['DeepLabV3', 'DeepLabV3Plus', 'UNet', 'UNetPlusPlus']
-	
-	active_originals = []
-	if config.get('USE_UNET_ORIGINAL', False): active_originals.append('UNet_original')
-	if config.get('USE_DEEPLABV1_ORIGINAL', False): active_originals.append('DeepLabV1_original')
-	if config.get('USE_DEEPLABV2_ORIGINAL', False): active_originals.append('DeepLabV2_original')
-	if config.get('USE_DEEPLABV3_ORIGINAL', False): active_originals.append('DeepLabV3_original')
-	if config.get('USE_MAXVIT_UNET', False): active_originals.append('MaxViTSmallUNet')
-	ORIGINAL_MODELS = active_originals
-
-	if model_set == 'standard':
-		local_model_checkpoints = {k: local_model_checkpoints_map[k] for k in STANDARD_MODELS if k in local_model_checkpoints_map}
-	elif model_set == 'originals':
-		local_model_checkpoints = {k: local_model_checkpoints_map[k] for k in ORIGINAL_MODELS if k in local_model_checkpoints_map}
-	elif model_set == 'all':
-		# merge both
-		local_model_checkpoints = {k: local_model_checkpoints_map[k] for k in (STANDARD_MODELS + ORIGINAL_MODELS) if k in local_model_checkpoints_map}
-	else:
-		raise RuntimeError(f"Unknown MODEL_SET '{model_set}' in config; expected 'standard', 'originals', or 'all'.")
+	selected_models = get_selected_model_names(config)
+	local_model_checkpoints = {
+		k: local_model_checkpoints_map[k]
+		for k in selected_models
+		if k in local_model_checkpoints_map
+	}
 
 	# Determine which subsets to include (always include test by default)
 	include_all = config.get('GENERATE_FOR_ALL_SETS', False)

@@ -15,6 +15,7 @@ import torch
 import numpy as np
 from pathlib import Path
 from utils.config_loader import load_config
+from utils.model_selection import get_selected_model_names
 from utils.dataset import SegmentationDataset
 from utils.transforms import get_val_transform
 from models.model_zoo import get_models
@@ -118,9 +119,6 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE, s
 # Models
 # Ensure model_zoo will register requested original DeepLab variants when configured
 import os
-# Determine model set from config
-model_set = config.get('MODEL_SET', 'standard')
-
 # Temporarily set env vars so get_models will register originals when required,
 # but avoid leaving these env vars set globally during test collection.
 old_env = {k: os.environ.get(k) for k in ('USE_UNET_ORIGINAL', 'USE_DEEPLABV1_ORIGINAL', 'USE_DEEPLABV2_ORIGINAL', 'USE_DEEPLABV3_ORIGINAL', 'USE_MAXVIT_UNET')}
@@ -139,25 +137,8 @@ finally:
         else:
             os.environ[k] = v
 
-# Select which models to evaluate based on MODEL_SET (config only)
-STANDARD_MODELS = ['DeepLabV3', 'DeepLabV3Plus', 'UNet', 'UNetPlusPlus']
-
-active_originals = []
-if config.get('USE_UNET_ORIGINAL', False): active_originals.append('UNet_original')
-if config.get('USE_DEEPLABV1_ORIGINAL', False): active_originals.append('DeepLabV1_original')
-if config.get('USE_DEEPLABV2_ORIGINAL', False): active_originals.append('DeepLabV2_original')
-if config.get('USE_DEEPLABV3_ORIGINAL', False): active_originals.append('DeepLabV3_original')
-if config.get('USE_MAXVIT_UNET', False): active_originals.append('MaxViTSmallUNet')
-ORIGINAL_MODELS = active_originals
-
-if model_set == 'standard':
-    selected_models = STANDARD_MODELS
-elif model_set == 'originals':
-    selected_models = ORIGINAL_MODELS
-elif model_set == 'all':
-    selected_models = STANDARD_MODELS + ORIGINAL_MODELS
-else:
-    raise RuntimeError(f"Unknown MODEL_SET '{model_set}' in config; expected 'standard', 'originals', or 'all'.")
+# Select which models to evaluate based on MODEL_SET + STANDARD_MODELS config
+selected_models = get_selected_model_names(config)
 
 models_dict = {k: v for k, v in models_dict.items() if k in selected_models}
 

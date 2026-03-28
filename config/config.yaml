@@ -1,13 +1,13 @@
-DATASET_PATH: "/home/tsopermon/Desktop/Benchmark Datasets/HexaLCSeg_10k"
+DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/Andros_Dataset_Balanced"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
 PRE_SPLIT_DATASET: true
 BATCH_SIZE: 4
-MAX_EPOCHS: 10
+MAX_EPOCHS: 200
 LEARNING_RATE: 0.0001
 LR_DECAY_GAMMA: 0.95
-IMAGE_SIZE: 256
+IMAGE_SIZE: 512
 NUM_WORKERS: 0
-USE_AUGMENTATION: false
+USE_AUGMENTATION: true
 PATIENCE: 20
 MIN_EPOCHS: 20
 MIN_DELTA: 0.0001
@@ -31,12 +31,16 @@ USE_UNET_ORIGINAL: false
 USE_DEEPLABV1_ORIGINAL: false
 USE_DEEPLABV2_ORIGINAL: false
 USE_DEEPLABV3_ORIGINAL: false
-USE_MAXVIT_UNET: true
+USE_MAXVIT_UNET: false
 # Model selection mode: one of `standard`, `originals`, or `all`.
 # - `standard`: use the standard SMP-backed models (DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus).
 # - `originals`: use only original-paper and custom implementations (`UNet_original`, `DeepLabV1_original`, `DeepLabV2_original`, `DeepLabV3_original`, `MaxViTSmallUNet`).
 # - `all`: train/evaluate both standard and original implementations.
-MODEL_SET: originals
+MODEL_SET: standard
+# Optional subset of standard models to include when MODEL_SET is `standard` or `all`.
+# Omit or set to [] to include all standard models.
+# Valid names: DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus
+STANDARD_MODELS: ['UNetPlusPlus']
 # Loss function: 'CrossEntropy', 'Dice', 'Focal', 'DiceBCE' (Dice + CrossEntropy), or 'DiceFocal'
 LOSS_FUNCTION: 'DiceFocal'
 DICE_WEIGHT: 1.0
@@ -46,7 +50,7 @@ FOCAL_WEIGHT: 1.0
 # Transfer Learning / Fine-Tuning
 # -----------------------------------------------------------------------------
 # When true, initialize models with weights from a pretrained checkpoint.
-TRANSFER_LEARNING: false
+TRANSFER_LEARNING: true
 # Directory where pretrained checkpoints are located. Checkpoints should be named <model_name>_best.pth
 PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'
 # When true, freeze the encoder (downsampling path) weights during training.

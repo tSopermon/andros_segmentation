@@ -12,7 +12,6 @@ First, train the model from scratch on your first dataset to learn robust featur
 
 1.  **Configure Dataset:** Ensure your dataset points to the dataset.
 2.  **Configure Settings (`config/config.yaml`):**
-    *   Set `NUM_CLASSES: 7`
     *   Set `DATA_AUGMENTATION: true` (or false, depending on your large dataset needs).
     *   Set `TRANSFER_LEARNING: false`
     *   Set `FREEZE_ENCODER: false`
@@ -31,7 +30,6 @@ Now, shift to the 120-sample dataset. We will load the pre-trained weights, let 
 
 1.  **Configure Dataset:** Update your dataset path to point to the 120-sample dataset.
 2.  **Configure Settings (`config/config.yaml`):**
-    *   **Modify the Architecture:** Set `NUM_CLASSES: 8`.
     *   **The Swap & Load:** Set `TRANSFER_LEARNING: true` and point `PRETRAINED_CHECKPOINT_DIR` to your saved Stage 1 checkpoints (e.g., `checkpoints_stage1/`). The system will automatically detect the shape mismatch in the classifier head, load the backbone weights, and randomly initialize a new 8-class head.
     *   **Freeze the Backbone:** Set `FREEZE_ENCODER: true`. This ensures only the new, uninitialized layers receive updates.
     *   **Heavy Augmentation:** Set `DATA_AUGMENTATION: true` to prevent overfitting on the small dataset.
