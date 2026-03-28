@@ -263,7 +263,8 @@ for model_name in MODEL_NAMES:
         model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS, specific_model=model_name)[model_name].to(device)
         
         if TRANSFER_LEARNING:
-            ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}_best.pth")
+            pretrained_suffix = config.get('PRETRAINED_WEIGHT_SUFFIX', '_best.pth')
+            ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}{pretrained_suffix}")
             apply_transfer_learning(model, ckpt_path, device)
             freeze_encoder_if_requested(model, FREEZE_ENCODER)
 
@@ -352,12 +353,17 @@ for model_name in MODEL_NAMES:
             model = get_models(NUM_CLASSES, backbone=BACKBONE, encoder_weights=ENCODER_WEIGHTS, specific_model=model_name)[model_name].to(device)
             
             if TRANSFER_LEARNING:
-                fold_ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}_fold{fold_idx}_best.pth")
-                best_ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}_best.pth")
-                if os.path.exists(fold_ckpt_path):
-                    apply_transfer_learning(model, fold_ckpt_path, device)
+                pretrained_suffix = config.get('PRETRAINED_WEIGHT_SUFFIX', '_best.pth')
+                if pretrained_suffix == '_best.pth':
+                    fold_ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}_fold{fold_idx}{pretrained_suffix}")
+                    best_ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}{pretrained_suffix}")
+                    if os.path.exists(fold_ckpt_path):
+                        apply_transfer_learning(model, fold_ckpt_path, device)
+                    else:
+                        apply_transfer_learning(model, best_ckpt_path, device)
                 else:
-                    apply_transfer_learning(model, best_ckpt_path, device)
+                    custom_ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}{pretrained_suffix}")
+                    apply_transfer_learning(model, custom_ckpt_path, device)
                 freeze_encoder_if_requested(model, FREEZE_ENCODER)
 
             optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)

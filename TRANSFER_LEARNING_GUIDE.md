@@ -22,6 +22,8 @@ First, train the model from scratch on your first dataset to learn robust featur
     ```
 4.  **Result:** Your fully trained 7-class models will be saved in the `checkpoints/` directory (e.g., `checkpoints/UNet_best.pth`). Copy this directory somewhere safe (e.g., `checkpoints_stage1/`) so it isn't overwritten.
 
+> **Alternative Stage 1:** If you lack a large labeled dataset, you can substitute Stage 1 with self-supervised feature extraction (Masked Autoencoder). Run `python pretrain.py` on your unlabeled images to generate a highly capable backbone, then proceed immediately to Stage 2. See [SELF_SUPERVISED_LEARNING.md](SELF_SUPERVISED_LEARNING.md) for dedicated SSL instructions.
+
 ---
 
 ## Stage 2: Head Swap & Frozen Fine-Tuning

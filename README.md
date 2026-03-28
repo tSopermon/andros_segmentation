@@ -15,6 +15,7 @@ For a detailed explanation of the data loading and training process, see [DATA_A
 - **Augmentation:** Comprehensive pipeline (Geometric, Pixel-level, Noise) using Albumentations.
 - **Training:** Mixed precision (AMP), global reproducibility, early stopping, and checkpointing.
 - **Transfer Learning:** Fine-tune from existing checkpoints with automatic shape mismatch handling (useful for varying class counts) and encoder freezing via `TRANSFER_LEARNING` config.
+- **Self-Supervised Learning:** Built-in Masked Autoencoder (MAE) style pre-training for U-Net architectures to improve performance on small datasets without requiring labeled ground truth.
 - **Evaluation:** Automated generation of metrics, confusion matrices, and visualizations.
 
 ## Installation
@@ -70,7 +71,18 @@ python train.py --config config/config.yaml
 - **Transfer Learning:** Settings in `config.yaml`:
     - `TRANSFER_LEARNING: true`
     - `PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'`
+    - `PRETRAINED_WEIGHT_SUFFIX: '_pretrained.pth'` (or `_best.pth`)
     - `FREEZE_ENCODER: true/false`
+
+### Self-Supervised Pre-training
+```bash
+python pretrain.py --config config/config.yaml
+```
+- Trains the model to reconstruct patch-masked inputs, building rich feature representations without labeled data.
+- Generates both random masks and object-centric masks (using Sobel edge-density) to force high-level structural learning.
+- Controlled via `PRETRAIN_EPOCHS`, `MASK_RATIO`, `PATCH_SIZE`, and `OBJECT_CENTRIC_EPOCH`.
+- Seamlessly integrates with downstream training using `TRANSFER_LEARNING: true` and `PRETRAINED_WEIGHT_SUFFIX: '_pretrained.pth'`.
+- See [SELF_SUPERVISED_LEARNING.md](SELF_SUPERVISED_LEARNING.md) for more details.
 
 ### Evaluation
 ```bash

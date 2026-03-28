@@ -68,3 +68,27 @@ def get_pixel_counts_cache(mask_dir, mask_list, mapping):
         counts[vals] = freqs
         cache[fname] = counts
     return cache
+
+class PretrainDataset(Dataset):
+    def __init__(self, image_dir, image_files, transform=None):
+        self.image_dir = image_dir
+        self.image_files = image_files
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, idx):
+        img_name = self.image_files[idx]
+        image = cv2.imread(str(self.image_dir / img_name))
+        if image is None:
+            raise ValueError(f"Failed to load image: {self.image_dir / img_name}")
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
+        if self.transform:
+            augmented = self.transform(image=image)
+            image = augmented['image']
+        else:
+            image = torch.from_numpy(image).permute(2, 0, 1).float()
+            
+        return image
