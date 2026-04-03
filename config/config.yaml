@@ -1,13 +1,14 @@
-DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/Andros_Dataset_Balanced_256"
+DATASET_PATH: "/home/tsopermon/Desktop/DeepGlobe_2018/deepglobe_balanced_256"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
+NUM_CLASSES: 
 PRE_SPLIT_DATASET: true
 BATCH_SIZE: 8
 MAX_EPOCHS: 200
-LEARNING_RATE: 0.0001
+LEARNING_RATE: 0.001
 LR_DECAY_GAMMA: 0.95
 IMAGE_SIZE: 256
 NUM_WORKERS: 0
-USE_AUGMENTATION: true
+USE_AUGMENTATION: false
 PATIENCE: 50
 MIN_EPOCHS: 20
 MIN_DELTA: 0.0001
@@ -50,7 +51,7 @@ FOCAL_WEIGHT: 1.0
 # Transfer Learning / Fine-Tuning
 # -----------------------------------------------------------------------------
 # When true, initialize models with weights from a pretrained checkpoint.
-TRANSFER_LEARNING: true
+TRANSFER_LEARNING: false
 # Directory where pretrained checkpoints are located. Checkpoints should be named <model_name>_best.pth
 PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'
 # Custom suffix for transfer learning (e.g., '_pretrained.pth' for MAE weights, defaults to '_best.pth')
@@ -61,7 +62,7 @@ FREEZE_ENCODER: false
 # -----------------------------------------------------------------------------
 # Self-Training / Pseudo-Labeling
 # -----------------------------------------------------------------------------
-SELF_TRAINING: true
+SELF_TRAINING: false
 UNLABELED_IMG_PATH: '/home/tsopermon/Desktop/Scraped Andros (KtimaNet)/Processed Dataset/ktimatologio_all_patches/train_256'
 PSEUDO_LABEL_THRESHOLD: 0.90
 IGNORE_INDEX: -1

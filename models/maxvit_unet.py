@@ -12,7 +12,7 @@ Repo references (exact permalinks in PRLAB21/MaxViT-UNet; for traceability only)
 - Config wiring (MMSeg):
   https://github.com/PRLAB21/MaxViT-UNet/blob/c822cbd283e8af45276e4888b771591250836012/configs/_base_/models/maxvit_unet.py
 
-Encoder source-of-truth (your choice):
+Encoder source-of-truth:
 - timm (installed dependency). To lock exact encoder source, pin timm version in requirements.
 
 Usage:

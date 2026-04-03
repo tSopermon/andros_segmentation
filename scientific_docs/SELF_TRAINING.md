@@ -80,3 +80,8 @@ The Teacher should ideally be better than, or at least as good as, a random-init
 | **Output Type** | RGB Reconstruction | Semantic Map |
 | **Learning Goal** | General Geometry & Texture | Class-Specific Boundaries |
 | **Best Used As** | Pre-training Step (Phase 1) | Fine-tuning/Refining Step (Phase 4) |
+
+
+https://arxiv.org/abs/2001.07685
+https://arxiv.org/abs/1911.04252
+https://www.researchgate.net/publication/280581078_Pseudo-Label_The_Simple_and_Efficient_Semi-Supervised_Learning_Method_for_Deep_Neural_Networks
