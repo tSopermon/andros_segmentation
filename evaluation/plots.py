@@ -14,13 +14,13 @@ import os
 
 # --- Plotting Functions for Model Evaluation ---
 
-def plot_confusion_matrices(models_dict, test_loader, label_mapping, class_names=None, output_dir="outputs"): 
+def plot_confusion_matrices(all_preds_dict, all_targets, label_mapping, class_names=None, output_dir="outputs"): 
     """
-    Plot confusion matrix heatmaps for each model.
+    Plot confusion matrix heatmaps for each model using cached predictions.
 
     Args:
-        models_dict (dict): Dictionary mapping model names to model instances.
-        test_loader (torch.utils.data.DataLoader): DataLoader for the test set.
+        all_preds_dict (dict): Dictionary mapping model names to predicted masks (np.ndarray of shape [N, H, W]).
+        all_targets (np.ndarray): Target masks (np.ndarray of shape [N, H, W]).
         label_mapping (dict): Mapping from original to new class labels.
         output_dir (str): Directory to save confusion matrix images. Defaults to "outputs".
 
@@ -28,54 +28,49 @@ def plot_confusion_matrices(models_dict, test_loader, label_mapping, class_names
         None
     """
     class_names_list = class_names if class_names is not None else [str(l) for l in label_mapping.keys()]
-    for model_name, model in models_dict.items():
-        all_preds, all_targets = [], []
-        with torch.no_grad():
-            for images, masks in test_loader:
-                images = images.to(next(model.parameters()).device)
-                outputs = model(images)
-                preds = torch.argmax(outputs, dim=1).cpu().numpy().reshape(-1)
-                targets = masks.cpu().numpy().reshape(-1)
-                all_preds.append(preds)
-                all_targets.append(targets)
-        all_preds = np.concatenate(all_preds)
-        all_targets = np.concatenate(all_targets)
-        cm = confusion_matrix(all_targets, all_preds, labels=list(label_mapping.values()))
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names_list, yticklabels=class_names_list)
+    targets_flat = all_targets.reshape(-1)
+    
+    for model_name, preds in all_preds_dict.items():
+        preds_flat = preds.reshape(-1)
+        cm = confusion_matrix(targets_flat, preds_flat, labels=list(label_mapping.values()))
+        
+        # Normalize the confusion matrix by row (True labels)
+        # Using np.errstate to handle division by zero for classes not present in the test set
+        with np.errstate(divide='ignore', invalid='ignore'):
+            cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            cm_normalized = np.nan_to_num(cm_normalized)
+            
+        plt.figure(figsize=(12, 10))
+        sns.heatmap(cm_normalized, annot=True, fmt='.2%', cmap='Blues', xticklabels=class_names_list, yticklabels=class_names_list)
         plt.xlabel('Predicted')
         plt.ylabel('True')
-        plt.title(f'Confusion Matrix - {model_name}')
+        plt.title(f'Normalized Confusion Matrix - {model_name}')
         plt.tight_layout()
         save_path = f"{output_dir}/confusion_matrix_{model_name}.png"
         plt.savefig(save_path)
         plt.close()
 
-def plot_metric_vs_class_frequency(all_test_results, test_loader, label_mapping=None, class_names=None, output_dir="outputs"):
+def plot_metric_vs_class_frequency(all_test_results, all_targets, label_mapping=None, class_names=None, output_dir="outputs"):
     """
     Plot metric (IoU, F1) vs. class frequency for each model.
 
     Args:
         all_test_results (dict): Dictionary mapping model names to test metrics dictionaries.
-        test_loader (torch.utils.data.DataLoader): DataLoader for the test set.
+        all_targets (np.ndarray): Ground truth target masks (shape N, H, W).
         label_mapping (dict): Mapping from original to new class labels.
         output_dir (str): Directory to save plots. Defaults to "outputs".
 
     Returns:
         None
     """
-    # Compute class frequencies
+    # Compute class frequencies directly from pre-cached targets
     num_classes = len(class_names) if class_names is not None else (len(label_mapping) if label_mapping is not None else 0)
     class_counts = np.zeros(num_classes)
-    all_mask_values = set()
-    for _, masks in test_loader:
-        for mask in masks:
-            vals, counts = np.unique(mask.numpy(), return_counts=True)
-            all_mask_values.update(vals.tolist())
-            for v, c in zip(vals, counts):
-                # If mask values are already 0,1,...,n-1, accumulate directly
-                if 0 <= v < len(class_counts):
-                    class_counts[v] += c
+    vals, counts = np.unique(all_targets, return_counts=True)
+    for v, c in zip(vals, counts):
+        if 0 <= v < len(class_counts):
+            class_counts[int(v)] += c
+            
     class_freq = class_counts / class_counts.sum() if class_counts.sum() > 0 else np.zeros_like(class_counts)
     metrics = ['iou', 'f1']
     class_indices = np.arange(1, len(class_counts) + 1)  # 1,2,...,n
@@ -116,50 +111,67 @@ def plot_metric_vs_class_frequency(all_test_results, test_loader, label_mapping=
         plt.savefig(save_path, bbox_inches='tight')
         plt.close()
 
-def plot_per_image_metric_distribution(models_dict, test_loader, class_names=None, device=None, output_dir="outputs"):
+def plot_per_image_metric_distribution(all_preds_dict, all_targets, class_names=None, output_dir="outputs"):
     """
-    Plot boxplots of per-image IoU and F1 for each model.
+    Plot boxplots of per-image IoU and F1 for each model using cached predictions.
 
     Args:
-        models_dict (dict): Dictionary mapping model names to model instances.
-        test_loader (torch.utils.data.DataLoader): DataLoader for the test set.
-        label_mapping (dict): Mapping from original to new class labels.
-        device (torch.device): Device to run evaluation on.
+        all_preds_dict (dict): Dictionary mapping model names to predicted masks (np.ndarray of shape [N, H, W]).
+        all_targets (np.ndarray): Target masks (np.ndarray of shape [N, H, W]).
+        class_names (list): List of class names.
         output_dir (str): Directory to save plots. Defaults to "outputs".
 
     Returns:
         None
     """
-    from training.metrics import SegmentationMetrics
     metric_names = ['iou', 'f1']
-    per_image_metrics = {model_name: {m: [] for m in metric_names} for model_name in models_dict}
-    for model_name, model in models_dict.items():
-        model.eval()
-        with torch.no_grad():
-            for images, masks in test_loader:
-                images = images.to(device)
-                masks = masks.to(device)
-                outputs = model(images)
-                preds = torch.argmax(outputs, dim=1)
-                for i in range(images.size(0)):
-                    pred_tensor = preds[i].unsqueeze(0).cpu()  # shape (1, H, W)
-                    mask_tensor = masks[i].unsqueeze(0).cpu()  # shape (1, H, W)
-                    num_classes = len(class_names) if class_names is not None else None
-                    if num_classes is None:
-                        # fallback to max label in mask +1
-                        num_classes = int(mask_tensor.max().item()) + 1
-                    metric_calc = SegmentationMetrics(num_classes)
-                    metric_calc.update(pred_tensor, mask_tensor)
-                    computed = metric_calc.compute_metrics()
-                    iou = np.nanmean(computed['iou'])
-                    f1 = np.nanmean(computed['f1'])
-                    per_image_metrics[model_name]['iou'].append(iou)
-                    per_image_metrics[model_name]['f1'].append(f1)
+    per_image_metrics = {model_name: {m: [] for m in metric_names} for model_name in all_preds_dict}
+    
+    num_classes = len(class_names) if class_names is not None else int(np.max(all_targets)) + 1
+    
+    for model_name, preds in all_preds_dict.items():
+        for i in range(preds.shape[0]):
+            pred_i = preds[i]
+            target_i = all_targets[i]
+            valid_mask = ((target_i >= 0) & (target_i < num_classes)).astype(np.float32)
+
+            image_iou = []
+            image_f1 = []
+            for c in range(num_classes):
+                pred_c = (pred_i == c).astype(np.float32) * valid_mask
+                target_c = (target_i == c).astype(np.float32) * valid_mask
+                
+                intersection = (pred_c * target_c).sum()
+                union = pred_c.sum() + target_c.sum() - intersection
+                
+                tp = intersection
+                fp = pred_c.sum() - tp
+                fn = target_c.sum() - tp
+                
+                if union > 0:
+                    image_iou.append(intersection / union)
+                
+                if (tp + fp + fn) > 0:
+                    precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
+                    recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
+                    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+                    image_f1.append(f1)
+                    
+            if len(image_iou) > 0:
+                per_image_metrics[model_name]['iou'].append(np.mean(image_iou))
+            if len(image_f1) > 0:
+                per_image_metrics[model_name]['f1'].append(np.mean(image_f1))
+                
     for metric in metric_names:
         plt.figure(figsize=(10, 6))
-        data = [per_image_metrics[m][metric] for m in models_dict]
+        data = [per_image_metrics[m][metric] for m in all_preds_dict if len(per_image_metrics[m][metric]) > 0]
+        valid_models = [m for m in all_preds_dict if len(per_image_metrics[m][metric]) > 0]
+        
+        if not data:
+            continue
+            
         # Show means and medians
-        box = plt.boxplot(data, labels=list(models_dict.keys()), patch_artist=True, showmeans=True,
+        box = plt.boxplot(data, labels=valid_models, patch_artist=True, showmeans=True,
                           meanprops={"marker":"D", "markeredgecolor":"black", "markerfacecolor":"gold"})
         plt.ylabel(metric.upper())
         plt.title(f'Per-Image {metric.upper()} Distribution')

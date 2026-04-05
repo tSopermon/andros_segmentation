@@ -107,47 +107,9 @@ def main():
 		image_entries = [(Path(test_dataset.image_dir) / f, 'test', os.path.splitext(f)[0]) for f in test_dataset.image_files]
 		mask_dirs.append(Path(dataset_path) / 'test' / ('Mask' if (Path(dataset_path) / 'test' / 'Mask').exists() else 'mask'))
 
-	# Infer NUM_CLASSES from available mask directories
-	all_classes = set()
-	for mdir in mask_dirs:
-		try:
-			for mf in sorted(os.listdir(mdir)):
-				m = cv2.imread(str(mdir / mf), cv2.IMREAD_GRAYSCALE)
-				if m is None:
-					continue
-				all_classes.update(np.unique(m).tolist())
-		except Exception:
-			continue
-	NUM_CLASSES = len(all_classes) if len(all_classes) > 0 else config.get('NUM_CLASSES', None)
-	if NUM_CLASSES is None:
-		raise RuntimeError('Unable to infer NUM_CLASSES from masks; please set NUM_CLASSES in config.')
-
-	# Temporarily set env vars so get_models will register originals when required,
-	# but avoid leaving these env vars set globally during test collection.
-	old_env = {k: os.environ.get(k) for k in ('USE_UNET_ORIGINAL', 'USE_DEEPLABV1_ORIGINAL', 'USE_DEEPLABV2_ORIGINAL', 'USE_DEEPLABV3_ORIGINAL', 'USE_MAXVIT_UNET')}
-	try:
-		if model_set in ('originals', 'all'):
-			os.environ['USE_UNET_ORIGINAL'] = 'true'
-			os.environ['USE_DEEPLABV1_ORIGINAL'] = 'true'
-			os.environ['USE_DEEPLABV2_ORIGINAL'] = 'true'
-			os.environ['USE_DEEPLABV3_ORIGINAL'] = 'true'
-			os.environ['USE_MAXVIT_UNET'] = 'true'
-		else:
-			os.environ['USE_DEEPLABV1_ORIGINAL'] = str(config.get('USE_DEEPLABV1_ORIGINAL', False)).lower()
-			os.environ['USE_DEEPLABV2_ORIGINAL'] = str(config.get('USE_DEEPLABV2_ORIGINAL', False)).lower()
-			os.environ['USE_DEEPLABV3_ORIGINAL'] = str(config.get('USE_DEEPLABV3_ORIGINAL', False)).lower()
-			os.environ['USE_MAXVIT_UNET'] = str(config.get('USE_MAXVIT_UNET', False)).lower()
-
-		BACKBONE = config.get('BACKBONE', 'resnet101')
-		models_dict = get_models(NUM_CLASSES, backbone=BACKBONE)
-	finally:
-		for k, v in old_env.items():
-			if v is None:
-				os.environ.pop(k, None)
-			else:
-				os.environ[k] = v
-
-	# models_dict is available from above
+	# NUM_CLASSES logic is now handled per-model inside the loop based on checkpoints.
+	# We still keep a fallback for color palette generation if needed.
+	NUM_CLASSES_FALLBACK = config.get('NUM_CLASSES', 8)
 
 	configure_logging(level=config.get('LOGGING_LEVEL', 'INFO'))
 	logger = logging.getLogger(__name__)
@@ -168,13 +130,58 @@ def main():
 		os.makedirs(model_output_dir, exist_ok=True)
 		saved_root_preview = False
 
-		# Load model
-		model = models_dict[model_name]
 		checkpoint_path = os.path.join(CHECKPOINTS_DIR, ckpt_file)
 		if not os.path.exists(checkpoint_path):
 			logger.warning('Missing checkpoint for %s: %s', model_name, checkpoint_path)
 			continue
-		model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+
+		# Load checkpoint to detect classes
+		checkpoint = torch.load(checkpoint_path, map_location='cpu')
+		
+		# Detect classes from state_dict
+		detected_classes = None
+		# SMP models: segmentation_head.0.weight shape is [out_channels, in_channels, 1, 1]
+		# UNet_original: final_conv.weight
+		# MaxViT: head.weight
+		# DeepLab wrapper: base.classifier.x.weight
+		for key in checkpoint.keys():
+			if any(k in key for k in ['segmentation_head.0.weight', 'final_conv.weight', 'head.weight', 'classifier.4.weight']):
+				detected_classes = checkpoint[key].shape[0]
+				break
+		
+		if detected_classes is None:
+			# Last resort: try any conv weight in a 'head' or 'final' layer
+			for key, val in checkpoint.items():
+				if ('head' in key or 'final' in key) and val.ndim == 4:
+					detected_classes = val.shape[0]
+					break
+		
+		NUM_CLASSES = detected_classes if detected_classes else NUM_CLASSES_FALLBACK
+		logger.info('Detected %d classes from checkpoint for %s', NUM_CLASSES, model_name)
+
+		# Build model specifically for this checkpoint's class count
+		old_env = {k: os.environ.get(k) for k in ('USE_UNET_ORIGINAL', 'USE_DEEPLABV1_ORIGINAL', 'USE_DEEPLABV2_ORIGINAL', 'USE_DEEPLABV3_ORIGINAL', 'USE_MAXVIT_UNET')}
+		try:
+			if model_set in ('originals', 'all'):
+				os.environ['USE_UNET_ORIGINAL'] = 'true'
+				os.environ['USE_DEEPLABV1_ORIGINAL'] = 'true'
+				os.environ['USE_DEEPLABV2_ORIGINAL'] = 'true'
+				os.environ['USE_DEEPLABV3_ORIGINAL'] = 'true'
+				os.environ['USE_MAXVIT_UNET'] = 'true'
+			else:
+				os.environ['USE_DEEPLABV1_ORIGINAL'] = str(config.get('USE_DEEPLABV1_ORIGINAL', False)).lower()
+				os.environ['USE_DEEPLABV2_ORIGINAL'] = str(config.get('USE_DEEPLABV2_ORIGINAL', False)).lower()
+				os.environ['USE_DEEPLABV3_ORIGINAL'] = str(config.get('USE_DEEPLABV3_ORIGINAL', False)).lower()
+				os.environ['USE_MAXVIT_UNET'] = str(config.get('USE_MAXVIT_UNET', False)).lower()
+
+			BACKBONE = config.get('BACKBONE', 'resnet101')
+			model = get_models(NUM_CLASSES, backbone=BACKBONE, specific_model=model_name)[model_name]
+		finally:
+			for k, v in old_env.items():
+				if v is None: os.environ.pop(k, None)
+				else: os.environ[k] = v
+
+		model.load_state_dict(checkpoint)
 		model.to(device)
 		model.eval()
 

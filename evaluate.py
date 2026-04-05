@@ -163,9 +163,37 @@ training_history = np.load('outputs/training_history.npy', allow_pickle=True).it
 
 # Evaluate
 all_test_results = {}
+all_preds_dict = {}
+all_targets_list = []
+targets_collected = False
+
+from tqdm import tqdm
+
 for model_name, model in models_dict.items():
     test_metrics = SegmentationMetrics(NUM_CLASSES)
-    test_metrics_dict = evaluate_model(model, test_loader, device, test_metrics)
+    model.eval()
+    test_metrics.reset()
+    all_preds_dict[model_name] = []
+    
+    logger.info(f"Evaluating {model_name} on test set...")
+    with torch.no_grad():
+        for images, masks in tqdm(test_loader, desc=f"Eval {model_name}"):
+            images = images.to(device)
+            masks = masks.to(device)
+            outputs = model(images)
+            test_metrics.update(outputs, masks)
+            
+            # Cache predictions for plotting later
+            preds = torch.argmax(outputs, dim=1).cpu().numpy().astype(np.uint8)
+            all_preds_dict[model_name].append(preds)
+            
+            if not targets_collected:
+                all_targets_list.append(masks.cpu().numpy().astype(np.uint8))
+                
+    targets_collected = True
+    all_preds_dict[model_name] = np.concatenate(all_preds_dict[model_name], axis=0)
+    
+    test_metrics_dict = test_metrics.compute_metrics()
     all_test_results[model_name] = test_metrics_dict
     logger.info("%s", "\n" + model_name.upper())
     logger.info('%s', '-' * 80)
@@ -184,6 +212,9 @@ for model_name, model in models_dict.items():
                 f"{test_metrics_dict['f1_micro']:<12.4f} {test_metrics_dict['iou_micro']:<12.4f}")
     logger.info('%s', '=' * 80)
 
+# Consolidate targets
+all_targets = np.concatenate(all_targets_list, axis=0)
+
 # Visualizations
 visualize_predictions(models_dict, test_dataset, test_images, test_masks, TEST_IMG_PATH, TEST_MASK_PATH, label_mapping, device, class_names=class_names)
 
@@ -196,9 +227,9 @@ plot_metric_per_class(all_test_results, 'iou', class_names)
 plot_mean_metrics(all_test_results)
 plot_all_averages(all_test_results)
 plot_metric_per_model_per_class(all_test_results, class_names)
-plot_confusion_matrices(models_dict, test_loader, label_mapping, class_names=class_names, output_dir="outputs")
-plot_metric_vs_class_frequency(all_test_results, test_loader, class_names=class_names, output_dir="outputs")
-plot_per_image_metric_distribution(models_dict, test_loader, class_names=class_names, device=device, output_dir="outputs")
+plot_confusion_matrices(all_preds_dict, all_targets, label_mapping, class_names=class_names, output_dir="outputs")
+plot_metric_vs_class_frequency(all_test_results, all_targets, label_mapping=label_mapping, class_names=class_names, output_dir="outputs")
+plot_per_image_metric_distribution(all_preds_dict, all_targets, class_names=class_names, output_dir="outputs")
 plot_metric_correlation_matrix(all_test_results, output_dir="outputs")
 
 # Export metrics
