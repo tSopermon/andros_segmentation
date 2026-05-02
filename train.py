@@ -34,6 +34,7 @@ from utils.logging_config import configure_logging, add_file_handler
 from sklearn.model_selection import StratifiedKFold
 import warnings
 import argparse
+from utils.graceful_stop import setup_graceful_stop, stop_requested, teardown_graceful_stop
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', default='config/config.yaml', help='Path to config YAML')
@@ -112,6 +113,11 @@ for _key, _val in sorted(config.items()):
 logger.info("=" * 70)
 
 logger.info("Using device: %s", device)
+
+# ── Graceful stop listener ────────────────────────────────────────────────────
+GRACEFUL_STOP_KEY = os.environ.get('GRACEFUL_STOP_KEY', config.get('GRACEFUL_STOP_KEY', 'q'))
+setup_graceful_stop(stop_key=GRACEFUL_STOP_KEY)
+
 if TRANSFER_LEARNING:
     logger.info("Transfer Learning ENABLED. Checkpoints dir: %s. Freeze Encoder: %s", PRETRAINED_CHECKPOINT_DIR, FREEZE_ENCODER)
 if SELF_TRAINING:
@@ -342,6 +348,15 @@ for model_name in MODEL_NAMES:
                 param.requires_grad = False
 
         for epoch in range(MAX_EPOCHS):
+            # Check if user requested graceful stop
+            if stop_requested():
+                logger.warning(
+                    "User requested stop — saving best checkpoint for %s "
+                    "and exiting training loop.", model_name
+                )
+                torch.save(model.state_dict(), f"checkpoints/{model_name}_best.pth")
+                break
+
             current_lr = optimizer.param_groups[0]['lr']
             train_loss, train_metrics_dict = train_epoch(
                 model, train_loader, criterion, optimizer, device, train_metrics,
@@ -461,6 +476,15 @@ for model_name in MODEL_NAMES:
                     param.requires_grad = False
 
             for epoch in range(MAX_EPOCHS):
+                # Check if user requested graceful stop
+                if stop_requested():
+                    logger.warning(
+                        "User requested stop — saving best checkpoint for %s "
+                        "fold %d and exiting training loop.", model_name, fold_idx
+                    )
+                    torch.save(model.state_dict(), f"checkpoints/{model_name}_fold{fold_idx}_best.pth")
+                    break
+
                 current_lr = optimizer.param_groups[0]['lr']
                 train_loss, train_metrics_dict = train_epoch(
                     model, train_loader, criterion, optimizer, device, train_metrics,
@@ -627,6 +651,15 @@ for model_name in MODEL_NAMES:
             full_train_loader = DataLoader(full_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
 
         for epoch in range(MAX_EPOCHS):
+            # Check if user requested graceful stop
+            if stop_requested():
+                logger.warning(
+                    "User requested stop — saving best checkpoint for %s "
+                    "full-data retrain and exiting training loop.", model_name
+                )
+                torch.save(model.state_dict(), f"checkpoints/{model_name}_best.pth")
+                break
+
             current_lr = optimizer.param_groups[0]['lr']
             train_loss, train_metrics_dict = train_epoch(
                 model, full_train_loader, criterion, optimizer, device, train_metrics,
@@ -665,6 +698,9 @@ for model_name in MODEL_NAMES:
 os.makedirs('outputs', exist_ok=True)
 np.save('outputs/training_history.npy', training_history)
 logger.info('✓ Training complete. History saved.')
+
+# ── Teardown graceful stop listener ───────────────────────────────────────────
+teardown_graceful_stop()
 
 # Restore original environment for any variables we changed above
 for k, v in old_env.items():

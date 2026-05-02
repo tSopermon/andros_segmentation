@@ -1,15 +1,16 @@
-DATASET_PATH: "/home/tsopermon/Desktop/DeepGlobe_2018/deepglobe_balanced_256"
+DATASET_PATH: "/home/tsopermon/Desktop/LoveDA"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
-NUM_CLASSES: 
+# NUM_CLASSES: 
 PRE_SPLIT_DATASET: true
-BATCH_SIZE: 8
+BATCH_SIZE: 4
 MAX_EPOCHS: 200
+GRACEFUL_STOP_KEY: 'q'
 LEARNING_RATE: 0.001
 LR_DECAY_GAMMA: 0.95
-IMAGE_SIZE: 256
+IMAGE_SIZE: 512
 NUM_WORKERS: 0
-USE_AUGMENTATION: false
-PATIENCE: 50
+USE_AUGMENTATION: true
+PATIENCE: 30
 MIN_EPOCHS: 20
 MIN_DELTA: 0.0001
 LR_PATIENCE_THRESHOLD: 0.5
