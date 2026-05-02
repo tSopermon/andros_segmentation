@@ -140,3 +140,6 @@ training_history.npy
 # GitHub Agent
 .github/
 .agent/
+
+# research memos
+memo/
