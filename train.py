@@ -85,7 +85,7 @@ FREEZE_ENCODER = str(os.environ.get('FREEZE_ENCODER', config.get('FREEZE_ENCODER
 SELF_TRAINING = str(os.environ.get('SELF_TRAINING', config.get('SELF_TRAINING', False))).lower() in ('1', 'true', 'yes')
 UNLABELED_IMG_PATH = Path(config.get('UNLABELED_IMG_PATH', '')) if config.get('UNLABELED_IMG_PATH', '') else None
 PSEUDO_LABEL_THRESHOLD = float(config.get('PSEUDO_LABEL_THRESHOLD', 0.90))
-IGNORE_INDEX = int(config.get('IGNORE_INDEX', -1))
+IGNORE_INDEX = int(config.get('IGNORE_INDEX', -1)) # this is set to -1 to ensure that the false positives are not taken into account.
 
 # Device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

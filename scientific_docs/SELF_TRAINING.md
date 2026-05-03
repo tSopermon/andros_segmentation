@@ -37,6 +37,7 @@ Enable the feature and point to your unlabeled data:
 # -----------------------------------------------------------------------------
 # Self-Training / Pseudo-Labeling
 # -----------------------------------------------------------------------------
+TRANSFER_LEARNING: true # using best checkpoint weights from previous run
 SELF_TRAINING: true
 UNLABELED_IMG_PATH: "/path/to/unlabeled/images"
 PSEUDO_LABEL_THRESHOLD: 0.90
@@ -81,7 +82,7 @@ The Teacher should ideally be better than, or at least as good as, a random-init
 | **Learning Goal** | General Geometry & Texture | Class-Specific Boundaries |
 | **Best Used As** | Pre-training Step (Phase 1) | Fine-tuning/Refining Step (Phase 4) |
 
-
-https://arxiv.org/abs/2001.07685
-https://arxiv.org/abs/1911.04252
-https://www.researchgate.net/publication/280581078_Pseudo-Label_The_Simple_and_Efficient_Semi-Supervised_Learning_Method_for_Deep_Neural_Networks
+### References:
+- https://arxiv.org/abs/2001.07685
+- https://arxiv.org/abs/1911.04252
+- https://www.researchgate.net/publication/280581078_Pseudo-Label_The_Simple_and_Efficient_Semi-Supervised_Learning_Method_for_Deep_Neural_Networks
