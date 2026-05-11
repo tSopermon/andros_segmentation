@@ -1,16 +1,16 @@
-DATASET_PATH: ""
+DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/Andros_Dataset_Balanced"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
 # NUM_CLASSES: 
 PRE_SPLIT_DATASET: true
 BATCH_SIZE: 4
 MAX_EPOCHS: 200
 GRACEFUL_STOP_KEY: 'q'
-LEARNING_RATE: 0.00001
+LEARNING_RATE: 0.001
 LR_DECAY_GAMMA: 0.95
 IMAGE_SIZE: 512
 NUM_WORKERS: 0
-USE_AUGMENTATION: false
-PATIENCE: 50
+USE_AUGMENTATION: true
+PATIENCE: 20
 MIN_EPOCHS: 20
 MIN_DELTA: 0.0001
 LR_PATIENCE_THRESHOLD: 0.5
@@ -52,7 +52,7 @@ FOCAL_WEIGHT: 1.0
 # Transfer Learning / Fine-Tuning
 # -----------------------------------------------------------------------------
 # When true, initialize models with weights from a pretrained checkpoint.
-TRANSFER_LEARNING: true
+TRANSFER_LEARNING: false
 # Directory where pretrained checkpoints are located. Checkpoints should be named <model_name>_best.pth
 PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'
 # Custom suffix for transfer learning (e.g., '_pretrained.pth' for MAE weights, defaults to '_best.pth')
@@ -63,8 +63,8 @@ FREEZE_ENCODER: false
 # -----------------------------------------------------------------------------
 # Self-Training / Pseudo-Labeling
 # -----------------------------------------------------------------------------
-SELF_TRAINING: true
-UNLABELED_IMG_PATH: ''
+SELF_TRAINING: false
+UNLABELED_IMG_PATH: '/home/tsopermon/Desktop/Scraped Andros (KtimaNet)/Processed Dataset/ktimatologio_all_patches'
 PSEUDO_LABEL_THRESHOLD: 0.75
 IGNORE_INDEX: -1 # -1 ignores the pixels with the minimum probability of belonging to a class (mainly used for training data to avoid adding noise from wrong pseudo-labels), assign 0 if you want to consider all pixels.
 

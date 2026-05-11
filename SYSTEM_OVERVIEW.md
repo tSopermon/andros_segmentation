@@ -37,6 +37,10 @@ The Andros Segmentation project is a reproducible pipeline for multiclass image 
 - Runs inference on specified datasets.
 - Exports color-coded segmentation masks for visual inspection.
 
+#### 4. Inference / Prediction (`predict.py`)
+- Provides a flexible CLI for on-demand inference on external images or directories.
+- Automatically detects class counts from checkpoints and outputs masked images with color overlays.
+
 ## Directory Structure
 - `config/`: Configuration files.
 - `utils/`: Utilities for data, transforms, and logging.

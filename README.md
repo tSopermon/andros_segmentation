@@ -107,6 +107,13 @@ python generate_masks.py --config config/config.yaml
 ```
 - Generates segmentation masks for test images in `outputs/<ModelName>/masks/`.
 
+### Single Image / Folder Prediction
+```bash
+python predict.py --input /path/to/image_or_folder --model UNetPlusPlus
+```
+- Predicts segmentation masks and generates color overlays for arbitrary local images or directories.
+- Uses the best trained checkpoint from `checkpoints/`.
+
 ### Training History Visualization
 ```bash
 python evaluation/visualize_history.py
@@ -125,7 +132,7 @@ python evaluation/visualize_augmentation.py
 - `models/`: Model architectures.
 - `training/`: Training logic and loss functions.
 - `evaluation/`: Metrics and visualization tools.
-- `train.py`, `evaluate.py`, `generate_masks.py`: Entry points.
+- `train.py`, `evaluate.py`, `generate_masks.py`, `predict.py`: Entry points.
 
 ## Dataset Structure
 ```text
