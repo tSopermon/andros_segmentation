@@ -39,6 +39,7 @@ The Andros Segmentation project is a reproducible pipeline for multiclass image 
 
 #### 4. Inference / Prediction (`predict.py`)
 - Provides a flexible CLI for on-demand inference on external images or directories.
+- Uses **Patch-based Sliding Window Inference** with customizable overlapping (`--patch-size`, `--overlap`) to seamlessly process arbitrarily large images without OOM errors.
 - Automatically detects class counts from checkpoints and outputs masked images with color overlays.
 
 ## Directory Structure

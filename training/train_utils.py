@@ -82,21 +82,25 @@ def _run_epoch(model, loader, criterion, device, optimizer=None, metrics=None, e
 
         if is_train:
             optimizer.zero_grad()
-        if scaler is not None:
-            with torch.amp.autocast("cuda"):
+        
+        with torch.set_grad_enabled(is_train):
+            if scaler is not None:
+                with torch.amp.autocast("cuda"):
+                    outputs = model(images)
+                    loss = criterion(outputs, masks)
+            else:
                 outputs = model(images)
                 loss = criterion(outputs, masks)
-            if is_train:
+                
+        if is_train:
+            if scaler is not None:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
-        else:
-            with torch.set_grad_enabled(is_train):
-                outputs = model(images)
-                loss = criterion(outputs, masks)
-            if is_train:
+            else:
                 loss.backward()
                 optimizer.step()
+                
         total_loss += loss.item()
         if metrics is not None:
             out_detach = outputs.detach() if is_train else outputs

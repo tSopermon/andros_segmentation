@@ -109,9 +109,11 @@ python generate_masks.py --config config/config.yaml
 
 ### Single Image / Folder Prediction
 ```bash
-python predict.py --input /path/to/image_or_folder --model UNetPlusPlus
+python predict.py --input /path/to/image_or_folder --model UNetPlusPlus --patch-size 512 --overlap 0.5
 ```
 - Predicts segmentation masks and generates color overlays for arbitrary local images or directories.
+- Utilizes **Patch-based Sliding Window Inference** to handle massive high-resolution images without GPU memory errors.
+- Averages overlapping predictions to ensure perfectly seamless mask borders.
 - Uses the best trained checkpoint from `checkpoints/`.
 
 ### Training History Visualization

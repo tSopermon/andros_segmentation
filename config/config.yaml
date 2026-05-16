@@ -1,52 +1,79 @@
+# =============================================================================
+# Andros Segmentation Configuration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Dataset & Paths
+# -----------------------------------------------------------------------------
 DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/Andros_Dataset_Balanced"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
-# NUM_CLASSES: 
 PRE_SPLIT_DATASET: true
+# When true, also include low-resolution images found in the dataset 'lowres' folder
+INCLUDE_LOWRES: false
+# NUM_CLASSES: 
+
+# -----------------------------------------------------------------------------
+# Training Hyperparameters
+# -----------------------------------------------------------------------------
 BATCH_SIZE: 4
 MAX_EPOCHS: 200
-GRACEFUL_STOP_KEY: 'q'
+MIN_EPOCHS: 20
 LEARNING_RATE: 0.001
 LR_DECAY_GAMMA: 0.95
 IMAGE_SIZE: 512
 NUM_WORKERS: 0
 USE_AUGMENTATION: true
 PATIENCE: 20
-MIN_EPOCHS: 20
 MIN_DELTA: 0.0001
 LR_PATIENCE_THRESHOLD: 0.5
 LR_PATIENCE_SCALE: 1.5
+GRACEFUL_STOP_KEY: "q"
+
+# -----------------------------------------------------------------------------
+# Loss Function
+# -----------------------------------------------------------------------------
+# Loss function: 'CrossEntropy', 'Dice', 'Focal', 'DiceBCE' (Dice + CrossEntropy), or 'DiceFocal'
+LOSS_FUNCTION: "DiceFocal"
+DICE_WEIGHT: 1.0
+FOCAL_WEIGHT: 1.0
+
+# -----------------------------------------------------------------------------
+# Model Architecture & Selection
+# -----------------------------------------------------------------------------
 BACKBONE: se_resnext50_32x4d # se_resnext50_32x4d: imagenet
-LOGGING_LEVEL: INFO
-# K-fold cross-validation: number of folds to use during training (1 = no k-fold)
-K_FOLDS: 1
-# If true, ensemble fold checkpoints for final evaluation
-ENSEMBLE: false 
 # Encoder weights to use for backbones (null/None to disable pretrained weights)
 ENCODER_WEIGHTS: imagenet
-# When true, generate masks for train/val/test (not just test)
-GENERATE_FOR_ALL_SETS: true
-# When true, also include low-resolution images found in the dataset 'lowres' folder
-INCLUDE_LOWRES: false
-# When true, include / enable the original-paper U-Net in runs
+
+# Model selection mode: one of `standard`, `originals`, or `all`.
+# - `standard`: use the standard SMP-backed models (DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus).
+# - `originals`: use only original-paper and custom implementations (`UNet_original`, `DeepLabV1_original`, etc).
+# - `all`: train/evaluate both standard and original implementations.
+MODEL_SET: originals
+# Optional subset of standard models to include when MODEL_SET is `standard` or `all`.
+# Omit or set to [] to include all standard models. Valid names: DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus
+STANDARD_MODELS: ["UNetPlusPlus"]
+
+# When true, include / enable the original-paper models in runs
 USE_UNET_ORIGINAL: false
-# Enable original DeepLab variants (disabled by default). Set to true to include them.
 USE_DEEPLABV1_ORIGINAL: false
 USE_DEEPLABV2_ORIGINAL: false
 USE_DEEPLABV3_ORIGINAL: false
-USE_MAXVIT_UNET: false
-# Model selection mode: one of `standard`, `originals`, or `all`.
-# - `standard`: use the standard SMP-backed models (DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus).
-# - `originals`: use only original-paper and custom implementations (`UNet_original`, `DeepLabV1_original`, `DeepLabV2_original`, `DeepLabV3_original`, `MaxViTSmallUNet`).
-# - `all`: train/evaluate both standard and original implementations.
-MODEL_SET: standard
-# Optional subset of standard models to include when MODEL_SET is `standard` or `all`.
-# Omit or set to [] to include all standard models.
-# Valid names: DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus
-STANDARD_MODELS: ['UNetPlusPlus']
-# Loss function: 'CrossEntropy', 'Dice', 'Focal', 'DiceBCE' (Dice + CrossEntropy), or 'DiceFocal'
-LOSS_FUNCTION: 'DiceFocal'
-DICE_WEIGHT: 1.0
-FOCAL_WEIGHT: 1.0
+USE_MAXVIT_UNET: true
+
+# -----------------------------------------------------------------------------
+# Cross-Validation & Ensembling
+# -----------------------------------------------------------------------------
+# K-fold cross-validation: number of folds to use during training (1 = no k-fold)
+K_FOLDS: 1
+# If true, ensemble fold checkpoints for final evaluation
+ENSEMBLE: false
+
+# -----------------------------------------------------------------------------
+# Evaluation & Logging
+# -----------------------------------------------------------------------------
+LOGGING_LEVEL: INFO
+# When true, generate masks for train/val/test (not just test)
+GENERATE_FOR_ALL_SETS: true
 
 # -----------------------------------------------------------------------------
 # Transfer Learning / Fine-Tuning
@@ -54,9 +81,9 @@ FOCAL_WEIGHT: 1.0
 # When true, initialize models with weights from a pretrained checkpoint.
 TRANSFER_LEARNING: false
 # Directory where pretrained checkpoints are located. Checkpoints should be named <model_name>_best.pth
-PRETRAINED_CHECKPOINT_DIR: 'checkpoints/'
+PRETRAINED_CHECKPOINT_DIR: "checkpoints/"
 # Custom suffix for transfer learning (e.g., '_pretrained.pth' for MAE weights, defaults to '_best.pth')
-PRETRAINED_WEIGHT_SUFFIX: '_best.pth'
+PRETRAINED_WEIGHT_SUFFIX: "_best.pth"
 # When true, freeze the encoder (downsampling path) weights during training.
 FREEZE_ENCODER: false
 
@@ -64,9 +91,10 @@ FREEZE_ENCODER: false
 # Self-Training / Pseudo-Labeling
 # -----------------------------------------------------------------------------
 SELF_TRAINING: false
-UNLABELED_IMG_PATH: '/home/tsopermon/Desktop/Scraped Andros (KtimaNet)/Processed Dataset/ktimatologio_all_patches'
+UNLABELED_IMG_PATH: "/home/tsopermon/Desktop/Scraped Andros (KtimaNet)/Processed Dataset/ktimatologio_all_patches"
 PSEUDO_LABEL_THRESHOLD: 0.75
-IGNORE_INDEX: -1 # -1 ignores the pixels with the minimum probability of belonging to a class (mainly used for training data to avoid adding noise from wrong pseudo-labels), assign 0 if you want to consider all pixels.
+# -1 ignores pixels with minimum probability (avoids adding noise). 0 to consider all pixels.
+IGNORE_INDEX: -1 
 
 # -----------------------------------------------------------------------------
 # Pre-training / Self-Predictive Learning

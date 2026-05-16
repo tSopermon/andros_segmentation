@@ -145,3 +145,5 @@ training_history.npy
 memo/
 
 predictions/
+
+teaching_materials/
