@@ -1,4 +1,19 @@
-#!/usr/bin/env python3
+"""
+Standalone prediction script for the Andros Segmentation project.
+Can be run using:
+
+python predict.py --input <path_to_image> --model <model_name> --checkpoint <path_to_checkpoint> --config <path_to_config>
+
+Detailed workflow:
+1. User provides input image or directory of images
+2. Loads config yaml file (model, dataloader preprocessing, etc)
+3. Loads checkpoint
+4. For each image
+5. Preprocess image (from dataloader preprocessing)
+6. Perform sliding window inference
+7. Postprocess image
+8. Save mask
+"""
 import os
 import argparse
 from pathlib import Path
@@ -19,6 +34,17 @@ def sliding_window_inference(model, image_tensor, num_classes, patch_size=512, o
     """
     Perform sliding window inference on a large image tensor.
     image_tensor: (1, C, H, W)
+
+    Args:
+        model: The trained PyTorch model to use for inference.
+        image_tensor: The input image tensor to perform inference on.
+        num_classes: The number of classes to predict.
+        patch_size: The size of the patches to use for inference.
+        overlap: The amount of overlap between patches.
+        logger: The logger to use for logging.
+    
+    Returns:
+        The predicted mask for the input image.
     """
     _, _, h, w = image_tensor.shape
     stride = int(patch_size * (1 - overlap))
