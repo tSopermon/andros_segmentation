@@ -5,12 +5,12 @@
 # -----------------------------------------------------------------------------
 # Dataset & Paths
 # -----------------------------------------------------------------------------
-DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/Andros_Dataset_Balanced"
+DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
-PRE_SPLIT_DATASET: true
+PRE_SPLIT_DATASET: false
 # When true, also include low-resolution images found in the dataset 'lowres' folder
 INCLUDE_LOWRES: false
-# NUM_CLASSES: 
+# NUM_CLASSES:
 
 # -----------------------------------------------------------------------------
 # Training Hyperparameters
@@ -22,7 +22,7 @@ LEARNING_RATE: 0.001
 LR_DECAY_GAMMA: 0.95
 IMAGE_SIZE: 512
 NUM_WORKERS: 0
-USE_AUGMENTATION: true
+USE_AUGMENTATION: false
 PATIENCE: 20
 MIN_DELTA: 0.0001
 LR_PATIENCE_THRESHOLD: 0.5
@@ -48,17 +48,17 @@ ENCODER_WEIGHTS: imagenet
 # - `standard`: use the standard SMP-backed models (DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus).
 # - `originals`: use only original-paper and custom implementations (`UNet_original`, `DeepLabV1_original`, etc).
 # - `all`: train/evaluate both standard and original implementations.
-MODEL_SET: originals
+MODEL_SET: standard
 # Optional subset of standard models to include when MODEL_SET is `standard` or `all`.
 # Omit or set to [] to include all standard models. Valid names: DeepLabV3, DeepLabV3Plus, UNet, UNetPlusPlus
-STANDARD_MODELS: ["UNetPlusPlus"]
+STANDARD_MODELS: ["UNetPlusPlus", "DeepLabV3Plus"]
 
 # When true, include / enable the original-paper models in runs
 USE_UNET_ORIGINAL: false
 USE_DEEPLABV1_ORIGINAL: false
 USE_DEEPLABV2_ORIGINAL: false
 USE_DEEPLABV3_ORIGINAL: false
-USE_MAXVIT_UNET: true
+USE_MAXVIT_UNET: false
 
 # -----------------------------------------------------------------------------
 # Cross-Validation & Ensembling
@@ -94,7 +94,7 @@ SELF_TRAINING: false
 UNLABELED_IMG_PATH: "/home/tsopermon/Desktop/Scraped Andros (KtimaNet)/Processed Dataset/ktimatologio_all_patches"
 PSEUDO_LABEL_THRESHOLD: 0.75
 # -1 ignores pixels with minimum probability (avoids adding noise). 0 to consider all pixels.
-IGNORE_INDEX: -1 
+IGNORE_INDEX: -1
 
 # -----------------------------------------------------------------------------
 # Pre-training / Self-Predictive Learning

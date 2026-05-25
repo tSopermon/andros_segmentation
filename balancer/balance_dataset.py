@@ -34,32 +34,44 @@ def collect_files(src_dir, img_subdir, mask_subdir, img_suffix="", mask_suffix="
             search_dirs.append(src_dir / split_dir)
             
     for d in search_dirs:
-        m_dir = d / mask_subdir
         i_dir = d / img_subdir
         
-        if not m_dir.exists() or not i_dir.exists():
+        if not i_dir.exists():
             continue
             
-        m_files = [f for f in os.listdir(m_dir) if f.lower().endswith(('.png', '.tif', '.tiff', '.jpg', '.jpeg'))]
-        for m_file in m_files:
-            m_base = os.path.splitext(m_file)[0]
-            
-            # Strip mask_suffix if present
-            if mask_suffix and m_base.endswith(mask_suffix):
-                base_name = m_base[:-len(mask_suffix)]
-            else:
-                base_name = m_base
+        if mask_subdir:
+            m_dir = d / mask_subdir
+            if not m_dir.exists():
+                continue
                 
-            # Form image search pattern with potential suffix
-            img_search_base = base_name + img_suffix
-            
-            # Try to find matching image
-            matches = glob.glob(os.path.join(i_dir, img_search_base + '.*'))
-            if matches:
-                # Store full paths
-                files_map[m_file] = {
-                    'mask': str(m_dir / m_file),
-                    'image': matches[0]
+            m_files = [f for f in os.listdir(m_dir) if f.lower().endswith(('.png', '.tif', '.tiff', '.jpg', '.jpeg'))]
+            for m_file in m_files:
+                m_base = os.path.splitext(m_file)[0]
+                
+                # Strip mask_suffix if present
+                if mask_suffix and m_base.endswith(mask_suffix):
+                    base_name = m_base[:-len(mask_suffix)]
+                else:
+                    base_name = m_base
+                    
+                # Form image search pattern with potential suffix
+                img_search_base = base_name + img_suffix
+                
+                # Try to find matching image
+                matches = glob.glob(os.path.join(i_dir, img_search_base + '.*'))
+                if matches:
+                    # Store full paths
+                    files_map[m_file] = {
+                        'mask': str(m_dir / m_file),
+                        'image': matches[0]
+                    }
+        else:
+            # Only images, no masks
+            i_files = [f for f in os.listdir(i_dir) if f.lower().endswith(('.png', '.tif', '.tiff', '.jpg', '.jpeg'))]
+            for i_file in i_files:
+                files_map[i_file] = {
+                    'mask': None,
+                    'image': str(i_dir / i_file)
                 }
                 
     return files_map
@@ -104,6 +116,31 @@ def make_dirs(base_path, subdirs):
     for split in ['train', 'val', 'test']:
         for subdir in subdirs:
             os.makedirs(os.path.join(base_path, split, subdir), exist_ok=True)
+
+def random_split(all_files, split_ratios):
+    """Randomly split files according to ratios when no balancing is needed."""
+    splits = ['train', 'val', 'test']
+    ratios = [split_ratios['train'], split_ratios['val'], split_ratios['test']]
+    num_files = len(all_files)
+    
+    target_files = {s: int(num_files * r) for s, r in zip(splits, ratios)}
+    remainder = num_files - sum(target_files.values())
+    if remainder > 0:
+        largest_split = max(target_files, key=target_files.get)
+        target_files[largest_split] += remainder
+        
+    np.random.seed(42)
+    all_files_copy = list(all_files)
+    np.random.shuffle(all_files_copy)
+    
+    split_files = {s: [] for s in splits}
+    start = 0
+    for s in splits:
+        end = start + target_files[s]
+        split_files[s] = all_files_copy[start:end]
+        start = end
+        
+    return split_files
 
 def balance_split(cache, total_counts, split_ratios):
     """
@@ -216,56 +253,68 @@ def main():
     img_suffix = config.get('IMAGE_SUFFIX', "")
     mask_suffix = config.get('MASK_SUFFIX', "")
     
+    has_masks = bool(mask_subdir)
     files_map = collect_files(src_dir, img_subdir, mask_subdir, img_suffix, mask_suffix)
     
     if not files_map:
-        logger.error(f"No mask/image pairs found in {src_dir} (searching flat and train/val/test splits)")
+        logger.error(f"No valid items found in {src_dir} (searching flat and train/val/test splits)")
         return
 
-    logger.info(f"Found {len(files_map)} image-mask pairs.")
+    logger.info(f"Found {len(files_map)} items.")
     
-    # 1. Discover classes
-    classes = get_unique_classes(files_map)
-    label_mapping = {val: i for i, val in enumerate(classes)}
-    logger.info(f"Label Mapping: {label_mapping}")
-    
-    # 2. Get counts
-    cache, total_counts = get_pixel_counts(files_map, label_mapping)
-    total_pixels = np.sum(total_counts)
-    
-    logger.info("Global Class Distribution:")
-    for cls_val, cls_idx in label_mapping.items():
-        pct = (total_counts[cls_idx] / total_pixels) * 100
-        logger.info(f"  Class {cls_val} (idx {cls_idx}): {pct:.2f}%")
+    if has_masks:
+        # 1. Discover classes
+        classes = get_unique_classes(files_map)
+        label_mapping = {val: i for i, val in enumerate(classes)}
+        logger.info(f"Label Mapping: {label_mapping}")
         
-    # 3. Balance splits
-    split_files, split_counts = balance_split(cache, total_counts, config['SPLIT_RATIOS'])
-    
-    for s in ['train', 'val', 'test']:
-        s_total = np.sum(split_counts[s])
-        logger.info(f"\n{s.upper()} Split: {len(split_files[s])} files")
+        # 2. Get counts
+        cache, total_counts = get_pixel_counts(files_map, label_mapping)
+        total_pixels = np.sum(total_counts)
+        
+        logger.info("Global Class Distribution:")
         for cls_val, cls_idx in label_mapping.items():
-            pct = (split_counts[s][cls_idx] / s_total) * 100 if s_total > 0 else 0
-            logger.info(f"  Class {cls_val}: {pct:.2f}%")
+            pct = (total_counts[cls_idx] / total_pixels) * 100
+            logger.info(f"  Class {cls_val} (idx {cls_idx}): {pct:.2f}%")
+            
+        # 3. Balance splits
+        split_files, split_counts = balance_split(cache, total_counts, config['SPLIT_RATIOS'])
+        
+        for s in ['train', 'val', 'test']:
+            s_total = np.sum(split_counts[s])
+            logger.info(f"\n{s.upper()} Split: {len(split_files[s])} files")
+            for cls_val, cls_idx in label_mapping.items():
+                pct = (split_counts[s][cls_idx] / s_total) * 100 if s_total > 0 else 0
+                logger.info(f"  Class {cls_val}: {pct:.2f}%")
+    else:
+        logger.info("No mask directory provided. Performing random split without balancing.")
+        split_files = random_split(list(files_map.keys()), config['SPLIT_RATIOS'])
+        for s in ['train', 'val', 'test']:
+            logger.info(f"\n{s.upper()} Split: {len(split_files[s])} files")
             
     # 4. Copy files
     logger.info(f"\nCopying files to {out_dir}...")
-    make_dirs(out_dir, [img_subdir, mask_subdir])
+    subdirs_to_make = [img_subdir]
+    if has_masks:
+        subdirs_to_make.append(mask_subdir)
+    make_dirs(out_dir, subdirs_to_make)
     
     for s in ['train', 'val', 'test']:
         logger.info(f"Copying {s} split...")
         s_img_dir = out_dir / s / img_subdir
-        s_mask_dir = out_dir / s / mask_subdir
-        for m_file in tqdm(split_files[s], desc=f"Copying {s}"):
-            src_mask_file = files_map[m_file]['mask']
-            src_image_file = files_map[m_file]['image']
+        if has_masks:
+            s_mask_dir = out_dir / s / mask_subdir
             
+        for item_key in tqdm(split_files[s], desc=f"Copying {s}"):
+            src_image_file = files_map[item_key]['image']
             img_file_name = os.path.basename(src_image_file)
-            
             shutil.copy2(src_image_file, s_img_dir / img_file_name)
-            shutil.copy2(src_mask_file, s_mask_dir / m_file)
+            
+            if has_masks:
+                src_mask_file = files_map[item_key]['mask']
+                shutil.copy2(src_mask_file, s_mask_dir / item_key)
                 
-    logger.info("Dataset completely balanced and split!")
+    logger.info("Dataset completely processed and split!")
 
 if __name__ == '__main__':
     main()
