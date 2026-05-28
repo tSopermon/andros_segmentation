@@ -25,7 +25,7 @@ For a detailed explanation of the data loading and training process, see [DATA_A
 - Python 3.8+
 - PyTorch with CUDA support recommended
 
-### Local Installation
+### Steps
 1. Clone the repository:
    ```bash
    git clone <repo_url>
@@ -40,22 +40,10 @@ For a detailed explanation of the data loading and training process, see [DATA_A
    ```bash
    pip install -r requirements.txt
    ```
-
-### Docker Installation (Recommended)
-1. **Configure Environment:**
-    ```bash
-    cp .env.example .env
-    # Edit .env to set DATASET_DIR=/absolute/path/to/dataset
-    ```
-2. **Run Training:**
-    ```bash
-    docker-compose up --build andros-segmentation
-    ```
-3. **Run Evaluation/Mask Generation:**
-    ```bash
-    docker-compose run --rm evaluate
-    docker-compose run --rm generate-masks
-    ```
+4. Create your configuration file from the template:
+   ```bash
+   cp config/config.yaml.template config/config.yaml
+   ```
 
 ## Usage
 
