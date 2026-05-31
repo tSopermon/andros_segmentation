@@ -121,6 +121,9 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE, s
 import os
 # Temporarily set env vars so get_models will register originals when required,
 # but avoid leaving these env vars set globally during test collection.
+# Select which models to evaluate based on MODEL_SET + STANDARD_MODELS config
+selected_models = get_selected_model_names(config)
+
 old_env = {k: os.environ.get(k) for k in ('USE_UNET_ORIGINAL', 'USE_DEEPLABV1_ORIGINAL', 'USE_DEEPLABV2_ORIGINAL', 'USE_DEEPLABV3_ORIGINAL', 'USE_MAXVIT_UNET')}
 try:
     os.environ['USE_UNET_ORIGINAL'] = str(config.get('USE_UNET_ORIGINAL', False)).lower()
@@ -129,18 +132,16 @@ try:
     os.environ['USE_DEEPLABV3_ORIGINAL'] = str(config.get('USE_DEEPLABV3_ORIGINAL', False)).lower()
     os.environ['USE_MAXVIT_UNET'] = str(config.get('USE_MAXVIT_UNET', False)).lower()
 
-    models_dict = get_models(NUM_CLASSES, backbone=config.get('BACKBONE', 'resnet101'), encoder_weights=config.get('ENCODER_WEIGHTS', 'imagenet'))
+    models_dict = {}
+    for model_name in selected_models:
+        model = get_models(NUM_CLASSES, backbone=config.get('BACKBONE', 'resnet101'), encoder_weights=config.get('ENCODER_WEIGHTS', 'imagenet'), specific_model=model_name)[model_name]
+        models_dict[model_name] = model
 finally:
     for k, v in old_env.items():
         if v is None:
             os.environ.pop(k, None)
         else:
             os.environ[k] = v
-
-# Select which models to evaluate based on MODEL_SET + STANDARD_MODELS config
-selected_models = get_selected_model_names(config)
-
-models_dict = {k: v for k, v in models_dict.items() if k in selected_models}
 
 # Ensure missing checkpoints exit properly
 missing = []

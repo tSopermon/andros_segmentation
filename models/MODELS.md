@@ -32,6 +32,11 @@ These models are provided by the [segmentation-models-pytorch (SMP)](https://git
 - **Backbone:** Configurable via `BACKBONE` config key. Use lighter backbones (e.g., `resnet18`) for speed or heavier ones (e.g., `resnet101`) for accuracy.
 - **Weights:** Uses `ENCODER_WEIGHTS` (default: `imagenet`).
 
+### Backbone and Decoder Compatibility (Timm Encoders)
+When using Timm encoders (prefix `tu-`), be aware of a fundamental compatibility restriction between certain decoders and backbones:
+- **DeepLab Family (DeepLabV3, DeepLabV3+)**: These decoders rely on **Dilated (Atrous) Convolutions** and try to dynamically modify the `output_stride` of the backbone to 8 or 16. Because of this, they are **only compatible** with backbones that natively support `output_stride` modification (like ResNets, EfficientNets, MobileNets). They will crash with a `TypeError: unexpected keyword argument 'output_stride'` on backbones with fixed structural strides (e.g., Vision Transformers, Swin, MaxVit).
+- **U-Net Family (UNet, UNetPlusPlus)**: These decoders do not require `output_stride` modifications and rely purely on the feature pyramid hierarchy. They are **highly compatible** with almost all Timm encoders, including Transformers and MaxVit (e.g., `tu-maxvit_large_tf_512`).
+
 ---
 
 ## Original Implementations

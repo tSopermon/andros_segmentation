@@ -40,7 +40,11 @@ FOCAL_WEIGHT: 1.0
 # -----------------------------------------------------------------------------
 # Model Architecture & Selection
 # -----------------------------------------------------------------------------
-BACKBONE: se_resnext50_32x4d # se_resnext50_32x4d: imagenet
+# Backbone encoder for the model. 
+# - Standard SMP encoders: e.g., 'resnet34', 'se_resnext50_32x4d'
+# - Timm encoders: Supported out-of-the-box by prefixing the Timm model name with 'tu-'.
+#                  Example: 'tu-resnet18', 'tu-efficientnet_b0', 'tu-mobilenetv3_large_100'
+BACKBONE: tu-resnet18 # Previously: se_resnext50_32x4d
 # Encoder weights to use for backbones (null/None to disable pretrained weights)
 ENCODER_WEIGHTS: imagenet
 
