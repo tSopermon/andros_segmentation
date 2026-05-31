@@ -33,9 +33,32 @@ These models are provided by the [segmentation-models-pytorch (SMP)](https://git
 - **Weights:** Uses `ENCODER_WEIGHTS` (default: `imagenet`).
 
 ### Backbone and Decoder Compatibility (Timm Encoders)
-When using Timm encoders (prefix `tu-`), be aware of a fundamental compatibility restriction between certain decoders and backbones:
-- **DeepLab Family (DeepLabV3, DeepLabV3+)**: These decoders rely on **Dilated (Atrous) Convolutions** and try to dynamically modify the `output_stride` of the backbone to 8 or 16. Because of this, they are **only compatible** with backbones that natively support `output_stride` modification (like ResNets, EfficientNets, MobileNets). They will crash with a `TypeError: unexpected keyword argument 'output_stride'` on backbones with fixed structural strides (e.g., Vision Transformers, Swin, MaxVit).
-- **U-Net Family (UNet, UNetPlusPlus)**: These decoders do not require `output_stride` modifications and rely purely on the feature pyramid hierarchy. They are **highly compatible** with almost all Timm encoders, including Transformers and MaxVit (e.g., `tu-maxvit_large_tf_512`).
+
+When using Timm encoders (prefix `tu-`), specific rules apply depending on your chosen Decoder and Input Image Resolution.
+
+#### 1. U-Net Family (UNet, UNetPlusPlus) - The Feature Scale Rule
+- **Rule:** You **MUST** use encoders from the [Traditional-Style list](https://smp.readthedocs.io/en/latest/encoders_timm.html#traditional-style).
+- **Why:** U-Net variants mathematically require a dense feature pyramid at every scale (1/2, 1/4, 1/8, 1/16, 1/32). "Transformer-Style" encoders (like Swin, SAM2, ConvNeXt) typically skip the 1/2 scale (stride 2), outputting `0` channels at that stage. This missing scale completely breaks U-Net skip connections, causing a `RuntimeError` during convolution initialization.
+- **Compatible:** `ResNet`, `EfficientNet`, `MobileNet`, `MaxVit` (MaxVit is Traditional-Style because it has a full CNN stem).
+- **Incompatible:** `Swin`, `SAM2`, `ConvNeXt`, `DaViT`.
+
+#### 2. DeepLab Family (DeepLabV3, DeepLabV3+) - The Dilation Rule
+- **Rule:** You **MUST** use encoders that support dilation (marked with a `✅` in the SMP docs).
+- **Why:** DeepLab models rely heavily on Atrous Spatial Pyramid Pooling (ASPP). To avoid shrinking the image to an unusable size, DeepLab forcibly overrides the encoder's `output_stride` (to 8 or 16). If the backbone lacks structural support for this override (like many fixed-stride Vision Transformers), it will crash with a `TypeError: unexpected keyword argument 'output_stride'`.
+- **Compatible:** `ResNet`, `EfficientNet`, `MobileNet`, `ConvNeXt` (ConvNeXt is a rare transformer that supports dilation).
+- **Incompatible:** `MaxVit`, `Swin`, `SAM2`.
+
+#### 3. Image Resolution Constraints (256px vs 512px)
+- **Fixed-Window Models:** Certain modern models (like `MaxVit` or `Swin`) use fixed-size attention windows. Their required resolution is usually baked directly into their name (e.g., `tu-maxvit_large_tf_512` or `tu-swinv2_base_window16_256`). If you pass 512px images to a `_256` model, it crashes instantly with an `AssertionError`.
+- **Fully Convolutional Models:** Standard CNNs (e.g., `tu-resnet101`, `tu-efficientnet_b0`) dynamically adapt to the spatial dimensions of your input and can be seamlessly swapped between 256px and 512px setups.
+
+#### Compatibility Summary Matrix
+| Backbone Type | Works with UNet / UNet++ ? | Works with DeepLabV3 / V3+ ? | Resolution Handling |
+| :--- | :---: | :---: | :--- |
+| **ResNet / EfficientNet** | ✅ Yes | ✅ Yes | Flexible (Accepts 256px or 512px) |
+| **MaxVit** (e.g. `_512`) | ✅ Yes | ❌ No | Strict (Must match name suffix) |
+| **Swin / SAM2** | ❌ No | ❌ No | Strict (Must match name suffix) |
+| **ConvNeXt** | ❌ No | ✅ Yes | Flexible |
 
 ---
 

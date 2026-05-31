@@ -308,7 +308,11 @@ for model_name in MODEL_NAMES:
             apply_transfer_learning(model, ckpt_path, device)
             freeze_encoder_if_requested(model, FREEZE_ENCODER)
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+        optimizer_type = config.get('OPTIMIZER', 'AdamW')
+        if optimizer_type.lower() == 'adamw':
+            optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
+        else:
+            optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY_GAMMA)
         
         loss_fn_name = config.get('LOSS_FUNCTION', 'CrossEntropy')
@@ -351,10 +355,9 @@ for model_name in MODEL_NAMES:
             # Check if user requested graceful stop
             if stop_requested():
                 logger.warning(
-                    "User requested stop — saving best checkpoint for %s "
-                    "and exiting training loop.", model_name
+                    "User requested stop. Exiting training loop. "
+                    "The best checkpoint on disk will be preserved."
                 )
-                torch.save(model.state_dict(), f"checkpoints/{model_name}_best.pth")
                 break
 
             current_lr = optimizer.param_groups[0]['lr']
@@ -479,10 +482,9 @@ for model_name in MODEL_NAMES:
                 # Check if user requested graceful stop
                 if stop_requested():
                     logger.warning(
-                        "User requested stop — saving best checkpoint for %s "
-                        "fold %d and exiting training loop.", model_name, fold_idx
+                        "User requested stop. Exiting training loop. "
+                        "The best checkpoint for fold %d will be preserved.", fold_idx
                     )
-                    torch.save(model.state_dict(), f"checkpoints/{model_name}_fold{fold_idx}_best.pth")
                     break
 
                 current_lr = optimizer.param_groups[0]['lr']
@@ -654,10 +656,9 @@ for model_name in MODEL_NAMES:
             # Check if user requested graceful stop
             if stop_requested():
                 logger.warning(
-                    "User requested stop — saving best checkpoint for %s "
-                    "full-data retrain and exiting training loop.", model_name
+                    "User requested stop. Exiting training loop. "
+                    "The best checkpoint for full-data retrain will be preserved."
                 )
-                torch.save(model.state_dict(), f"checkpoints/{model_name}_best.pth")
                 break
 
             current_lr = optimizer.param_groups[0]['lr']
@@ -687,9 +688,10 @@ for model_name in MODEL_NAMES:
                     logger.info("Early stopping full-data retrain at epoch %d (no training-loss improvement for %d epochs)", epoch+1, effective_patience)
                     break
 
-        # always save final model (overwrite) to ensure a final checkpoint exists
-        torch.save(model.state_dict(), f"checkpoints/{model_name}_best.pth")
-        logger.info('✓ %s full-data retrain complete. Checkpoint saved to %s', model_name, f'checkpoints/{model_name}_best.pth')
+        # Ensure a final checkpoint exists if none was saved
+        if not os.path.exists(f"checkpoints/{model_name}_best.pth"):
+            torch.save(model.state_dict(), f"checkpoints/{model_name}_best.pth")
+        logger.info('✓ %s full-data retrain complete. Best checkpoint preserved at %s', model_name, f'checkpoints/{model_name}_best.pth')
         model.cpu()
         del model, optimizer, scheduler, criterion, train_metrics
         torch.cuda.empty_cache()

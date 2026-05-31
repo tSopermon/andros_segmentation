@@ -18,6 +18,8 @@ INCLUDE_LOWRES: false
 BATCH_SIZE: 4
 MAX_EPOCHS: 200
 MIN_EPOCHS: 20
+# Optimizer: 'Adam' or 'AdamW'. AdamW is recommended for Transformers.
+OPTIMIZER: "AdamW"
 LEARNING_RATE: 0.001
 LR_DECAY_GAMMA: 0.95
 IMAGE_SIZE: 512

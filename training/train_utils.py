@@ -95,10 +95,15 @@ def _run_epoch(model, loader, criterion, device, optimizer=None, metrics=None, e
         if is_train:
             if scaler is not None:
                 scaler.scale(loss).backward()
+                # Unscale before clipping
+                scaler.unscale_(optimizer)
+                # Clip gradients to prevent exploding gradients (crucial for Transformers + AMP + Augmentation)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
             else:
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
                 
         total_loss += loss.item()
