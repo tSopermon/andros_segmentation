@@ -10,5 +10,6 @@ pytest
 seaborn
 pyyaml
 torchvision
-encoding
+pandas
+Pillow
 timm
