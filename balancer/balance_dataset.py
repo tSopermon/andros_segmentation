@@ -18,7 +18,7 @@ def load_config(config_path):
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
-def collect_files(src_dir, img_subdir, mask_subdir, img_suffix="", mask_suffix=""):
+def collect_files(src_dir, img_subdir, mask_subdir, img_suffix="", mask_suffix="", replace_mask_str="", with_image_str=""):
     """
     Search for dataset files. Handles cases where files are:
     1. Flat in src_dir / img_subdir
@@ -55,7 +55,10 @@ def collect_files(src_dir, img_subdir, mask_subdir, img_suffix="", mask_suffix="
                     base_name = m_base
                     
                 # Form image search pattern with potential suffix
-                img_search_base = base_name + img_suffix
+                img_search_base = base_name
+                if replace_mask_str and replace_mask_str in img_search_base:
+                    img_search_base = img_search_base.replace(replace_mask_str, with_image_str)
+                img_search_base += img_suffix
                 
                 # Try to find matching image
                 matches = glob.glob(os.path.join(i_dir, img_search_base + '.*'))
@@ -252,9 +255,11 @@ def main():
     
     img_suffix = config.get('IMAGE_SUFFIX', "")
     mask_suffix = config.get('MASK_SUFFIX', "")
+    replace_mask_str = config.get('REPLACE_MASK_STR', "")
+    with_image_str = config.get('WITH_IMAGE_STR', "")
     
     has_masks = bool(mask_subdir)
-    files_map = collect_files(src_dir, img_subdir, mask_subdir, img_suffix, mask_suffix)
+    files_map = collect_files(src_dir, img_subdir, mask_subdir, img_suffix, mask_suffix, replace_mask_str, with_image_str)
     
     if not files_map:
         logger.error(f"No valid items found in {src_dir} (searching flat and train/val/test splits)")

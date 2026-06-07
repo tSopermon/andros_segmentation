@@ -36,7 +36,9 @@ Edit `balancer_config.yaml` before running:
 - `IMAGE_SUBDIR` - image folder name inside `SOURCE_PATH`.
 - `MASK_SUBDIR` - mask folder name inside `SOURCE_PATH`. Set this to empty or `null` if the dataset only contains images.
 - `SPLIT_RATIOS` - target ratios for `train`, `val`, and `test`.
-
+- **Filename Matching Options (Optional)**:
+  - `IMAGE_SUFFIX` / `MASK_SUFFIX` - Suffixes to ignore/match if files differ only at the very end of the base name (e.g., `_image`, `_mask`).
+  - `REPLACE_MASK_STR` / `WITH_IMAGE_STR` - Use these if the image and mask files differ by a substring located in the *middle* of the filename (e.g. `..._Mask_001.tif` vs `..._Image_001.tif`).
 ## Run
 
 From the project root:
