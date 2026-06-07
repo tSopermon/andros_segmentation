@@ -70,7 +70,7 @@ python generate_masks.py --config config/config.yaml
 
 Masks will be saved in `outputs/<ModelName>/masks/`.
 
-## 6. Standalone Inference
+## 6. Standalone Inference (Prediction)
 
 To run inference on any new image or folder of images (without needing a dataset structure), use the `predict.py` script:
 
@@ -78,4 +78,14 @@ To run inference on any new image or folder of images (without needing a dataset
 python predict.py --input /path/to/my_image.png --model UNetPlusPlus --patch-size 512 --overlap 0.5
 ```
 
-This will automatically use the best checkpoint for the specified model and save the predictions with color overlays in the `predictions/` directory.
+This will automatically use the default best checkpoint (`checkpoints/<ModelName>_best.pth`) for the specified model.
+
+### Using a Custom Trained Checkpoint
+
+If you have a specific trained checkpoint file that you want to use for testing or prediction, you can provide the path to it using the `--checkpoint` argument:
+
+```bash
+python predict.py --input /path/to/test_images_folder/ --model UNetPlusPlus --checkpoint /path/to/my_custom_checkpoint.pth --patch-size 512 --overlap 0.5
+```
+
+The script will load your trained weights and save the resulting predictions with color overlays in the `predictions/` directory.
