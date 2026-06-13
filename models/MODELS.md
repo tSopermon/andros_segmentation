@@ -68,11 +68,13 @@ These are native PyTorch implementations or wrappers around official Torchvision
 ### 1. UNet_original
 - **Source:** Local implementation (`models/unet_original.py`) adapted from [nn.labml.ai](https://nn.labml.ai/unet/index.html).
 - **Description:** A faithful implementation of the original U-Net paper "U-Net: Convolutional Networks for Biomedical Image Segmentation".
+  - *Note:* `BatchNorm2d` has been injected between `Conv2d` and `ReLU` layers to stabilize and accelerate modern training, preventing vanishing gradients that plagued the original architecture without pretraining.
 - **Config:** Fixed architecture; does not use the configurable backbone settings.
 
 ### 2. DeepLabV1_original
 - **Source:** [rulixiang/deeplab-pytorch](https://github.com/rulixiang/deeplab-pytorch/blob/master/models/DeepLabV1_LargeFOV.py)
 - **Description:** DeepLabV1 with Large Field-of-View (LargeFOV).
+  - *Note:* Similar to UNet, `BatchNorm2d` layers have been added after convolutional layers to ensure stable training from random initialization.
 - **Activation:** Requires environment variable `USE_DEEPLABV1_ORIGINAL=true` (handled automatically by `MODEL_SET: originals`).
 
 ### 3. DeepLabV2_original

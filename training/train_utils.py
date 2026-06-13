@@ -47,6 +47,11 @@ def _run_epoch(model, loader, criterion, device, optimizer=None, metrics=None, e
     """
     if is_train:
         model.train()
+        # Prevent frozen layers (e.g., BatchNorm) from updating running statistics
+        for module in model.modules():
+            if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+                if hasattr(module, 'weight') and module.weight is not None and not module.weight.requires_grad:
+                    module.eval()
     else:
         model.eval()
     total_loss = 0.0

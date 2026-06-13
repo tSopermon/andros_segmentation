@@ -33,23 +33,29 @@ class Block(nn.Module):
         super(Block, self).__init__()
         self.depth = depth
         self.conv1 = conv3x3(in_planes, out_planes, padding=padding, dilation=dilation)
+        self.bn1 = nn.BatchNorm2d(out_planes)
         self.relu1 = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(out_planes, out_planes, padding=padding, dilation=dilation)
+        self.bn2 = nn.BatchNorm2d(out_planes)
         self.relu2 = nn.ReLU(inplace=True)
         if self.depth==3:
             self.conv3 = conv3x3(out_planes, out_planes, padding=padding, dilation=dilation)
+            self.bn3 = nn.BatchNorm2d(out_planes)
             self.relu3 = nn.ReLU(inplace=True)
         self.pool = nn.MaxPool2d(kernel_size=3, stride=pool_stride, padding=1)
 
     def forward(self,x):
 
         x = self.conv1(x)
+        x = self.bn1(x)
         x = self.relu1(x)
         x = self.conv2(x)
+        x = self.bn2(x)
         x = self.relu2(x)
 
         if self.depth==3:
             x = self.conv3(x)
+            x = self.bn3(x)
             x = self.relu3(x)
 
         x = self.pool(x)
@@ -73,10 +79,12 @@ class DeepLabV1_LargeFOV(nn.Module):
         self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
 
         self.conv6 = conv3x3(in_planes=512, out_planes=1024, padding=12, dilation=12)
+        self.bn6 = nn.BatchNorm2d(1024)
         self.relu6 = nn.ReLU(inplace=True)
         self.drop6 = nn.Dropout2d(0.5)
 
         self.conv7 = conv1x1(in_planes=1024, out_planes=1024, padding=0)
+        self.bn7 = nn.BatchNorm2d(1024)
         self.relu7 = nn.ReLU(inplace=True)
         self.drop7 = nn.Dropout2d(0.5)
 
@@ -96,10 +104,12 @@ class DeepLabV1_LargeFOV(nn.Module):
         x = self.avg_pool(x)
 
         x = self.conv6(x)
+        x = self.bn6(x)
         x = self.relu6(x)
         x = self.drop6(x)
 
         x = self.conv7(x)
+        x = self.bn7(x)
         x = self.relu7(x)
         x = self.drop7(x)
 

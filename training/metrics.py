@@ -66,10 +66,10 @@ class SegmentationMetrics:
         """
         metrics = {}
         # Per-class metrics
-        precision = np.divide(self.tp, self.tp + self.fp, where=(self.tp + self.fp) != 0, out=np.ones_like(self.tp))
-        recall = np.divide(self.tp, self.tp + self.fn, where=(self.tp + self.fn) != 0, out=np.ones_like(self.tp))
-        f1 = np.divide(2 * precision * recall, precision + recall, where=(precision + recall) != 0, out=np.zeros_like(precision))
-        iou = np.divide(self.intersection, self.union, where=self.union != 0, out=np.ones_like(self.intersection))
+        precision = np.divide(self.tp, self.tp + self.fp, where=(self.tp + self.fp) != 0, out=np.full_like(self.tp, np.nan))
+        recall = np.divide(self.tp, self.tp + self.fn, where=(self.tp + self.fn) != 0, out=np.full_like(self.tp, np.nan))
+        f1 = np.divide(2 * precision * recall, precision + recall, where=(precision + recall) != 0, out=np.full_like(precision, np.nan))
+        iou = np.divide(self.intersection, self.union, where=self.union != 0, out=np.full_like(self.intersection, np.nan))
         
         metrics['precision'] = precision
         metrics['recall'] = recall
@@ -87,10 +87,11 @@ class SegmentationMetrics:
         total_pixels = weights.sum()
         if total_pixels > 0:
             w = weights / total_pixels
-            metrics['precision_weighted'] = np.sum(precision * w)
-            metrics['recall_weighted'] = np.sum(recall * w)
-            metrics['f1_weighted'] = np.sum(f1 * w)
-            metrics['iou_weighted'] = np.sum(iou * w)
+            # np.nansum safely ignores nan metrics for absent classes (where w is 0 anyway)
+            metrics['precision_weighted'] = np.nansum(precision * w)
+            metrics['recall_weighted'] = np.nansum(recall * w)
+            metrics['f1_weighted'] = np.nansum(f1 * w)
+            metrics['iou_weighted'] = np.nansum(iou * w)
         else:
             metrics['precision_weighted'] = metrics['precision_mean']
             metrics['recall_weighted'] = metrics['recall_mean']

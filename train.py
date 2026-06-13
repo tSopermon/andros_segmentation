@@ -434,7 +434,11 @@ for model_name in MODEL_NAMES:
                     apply_transfer_learning(model, custom_ckpt_path, device)
                 freeze_encoder_if_requested(model, FREEZE_ENCODER)
 
-            optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+            optimizer_type = config.get('OPTIMIZER', 'AdamW')
+            if optimizer_type.lower() == 'adamw':
+                optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
+            else:
+                optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
             scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY_GAMMA)
             
             loss_fn_name = config.get('LOSS_FUNCTION', 'CrossEntropy')
@@ -602,7 +606,11 @@ for model_name in MODEL_NAMES:
         if TRANSFER_LEARNING:
             freeze_encoder_if_requested(model, FREEZE_ENCODER)
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+        optimizer_type = config.get('OPTIMIZER', 'AdamW')
+        if optimizer_type.lower() == 'adamw':
+            optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
+        else:
+            optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=LR_DECAY_GAMMA)
         
         loss_fn_name = config.get('LOSS_FUNCTION', 'CrossEntropy')
