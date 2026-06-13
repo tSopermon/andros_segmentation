@@ -65,6 +65,8 @@ When using Timm encoders (prefix `tu-`), specific rules apply depending on your 
 ## Original Implementations
 These are native PyTorch implementations or wrappers around official Torchvision models, focused on reproducing specific paper architectures.
 
+> **Important:** Unlike the SMP models, the original implementations generally **ignore** the `BACKBONE` configuration setting in `config.yaml` and rely on their own custom encoders or hardcoded `torchvision`/`timm` models.
+
 ### 1. UNet_original
 - **Source:** Local implementation (`models/unet_original.py`) adapted from [nn.labml.ai](https://nn.labml.ai/unet/index.html).
 - **Description:** A faithful implementation of the original U-Net paper "U-Net: Convolutional Networks for Biomedical Image Segmentation".
@@ -75,21 +77,29 @@ These are native PyTorch implementations or wrappers around official Torchvision
 - **Source:** [rulixiang/deeplab-pytorch](https://github.com/rulixiang/deeplab-pytorch/blob/master/models/DeepLabV1_LargeFOV.py)
 - **Description:** DeepLabV1 with Large Field-of-View (LargeFOV).
   - *Note:* Similar to UNet, `BatchNorm2d` layers have been added after convolutional layers to ensure stable training from random initialization.
+- **Config:** Fixed architecture; does not use the configurable backbone settings from `config.yaml`.
 - **Activation:** Requires environment variable `USE_DEEPLABV1_ORIGINAL=true` (handled automatically by `MODEL_SET: originals`).
 
 ### 3. DeepLabV2_original
 - **Source:** Adapted from [kazuto1011/deeplab-pytorch](https://github.com/kazuto1011/deeplab-pytorch/blob/master/libs/models/deeplabv2.py)
 - **Description:** DeepLabV2 using Dilated ResNet and ASPP.
 - **Config:**
-    - Uses ResNet backbone (defaulting to `resnet50` if `resnet18` is requested, for compatibility).
+    - Ignores the `BACKBONE` setting in `config.yaml`. It is hardcoded to use `torchvision`'s `resnet50` (or `resnet101` if strictly passed internally).
     - Hardcoded `n_blocks=[3, 4, 23, 3]` and `atrous_rates=[6, 12, 18, 24]`.
 - **Activation:** Requires environment variable `USE_DEEPLABV2_ORIGINAL=true`.
 
 ### 4. DeepLabV3_original
 - **Source:** Wrapper around `torchvision.models.segmentation.deeplabv3_resnet50`.
 - **Description:** Official PyTorch Hub DeepLabV3 with a ResNet50 backbone.
+- **Config:** Ignores the `BACKBONE` setting in `config.yaml` and relies on `torchvision`'s ResNet50.
 - **Weights:** Automatically downloads `DeepLabV3_ResNet50_Weights.COCO_WITH_VOC_LABELS_V1`.
 - **Wrappers:**
     - Modified classifier layer to match the dataset's `NUM_CLASSES`.
     - Custom wrapper ensures output is a tensor (handles Torchvision's dictionary output) and enforces bilinear upsampling to input size.
 - **Activation:** Requires environment variable `USE_DEEPLABV3_ORIGINAL=true`.
+
+### 5. MaxViTSmallUNet
+- **Source:** Local implementation (`models/maxvit_unet.py`) using `timm`.
+- **Description:** Standalone semantic segmentation model with a MaxViT-S encoder and simple UNet-style upsampling.
+- **Config:** Ignores the `BACKBONE` setting in `config.yaml` and always uses a hardcoded `maxvit_small_tf_224` encoder.
+- **Activation:** Requires environment variable `USE_MAXVIT_UNET=true` (handled automatically by `MODEL_SET: originals`).
