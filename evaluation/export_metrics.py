@@ -29,14 +29,33 @@ def export_metrics(models_dict, all_test_results, training_history, num_classes,
     for model_name in models_dict.keys():
         test_result = all_test_results[model_name]
         train_history = training_history[model_name]
-        final_train_f1 = train_history['train_f1_mean'][-1]
-        final_train_prec = train_history['train_precision_mean'][-1]
-        final_train_rec = train_history['train_recall_mean'][-1]
-        final_train_iou = train_history['train_iou_mean'][-1]
-        final_val_f1 = train_history['val_f1_mean'][-1]
-        final_val_prec = train_history['val_precision_mean'][-1]
-        final_val_rec = train_history['val_recall_mean'][-1]
-        final_val_iou = train_history['val_iou_mean'][-1]
+        import numpy as np
+        
+        val_ious = train_history.get('val_iou_mean', [])
+        train_ious = train_history.get('train_iou_mean', [])
+        
+        if len(val_ious) > 0:
+            best_idx = np.argmax(val_ious)
+            final_val_f1 = train_history['val_f1_mean'][best_idx]
+            final_val_prec = train_history['val_precision_mean'][best_idx]
+            final_val_rec = train_history['val_recall_mean'][best_idx]
+            final_val_iou = train_history['val_iou_mean'][best_idx]
+            
+            final_train_f1 = train_history['train_f1_mean'][best_idx]
+            final_train_prec = train_history['train_precision_mean'][best_idx]
+            final_train_rec = train_history['train_recall_mean'][best_idx]
+            final_train_iou = train_history['train_iou_mean'][best_idx]
+        elif len(train_ious) > 0:
+            best_idx = np.argmax(train_ious)
+            final_train_f1 = train_history['train_f1_mean'][best_idx]
+            final_train_prec = train_history['train_precision_mean'][best_idx]
+            final_train_rec = train_history['train_recall_mean'][best_idx]
+            final_train_iou = train_history['train_iou_mean'][best_idx]
+            final_val_f1 = final_val_prec = final_val_rec = final_val_iou = 0.0
+        else:
+            final_train_f1 = final_train_prec = final_train_rec = final_train_iou = 0.0
+            final_val_f1 = final_val_prec = final_val_rec = final_val_iou = 0.0
+
         # Determine class labels for CSV export
         if class_names is not None and len(class_names) >= num_classes:
             csv_class_labels = class_names[:num_classes]
@@ -94,16 +113,41 @@ def export_metrics(models_dict, all_test_results, training_history, num_classes,
     for model_name in models_dict.keys():
         test_result = all_test_results[model_name]
         train_history = training_history[model_name]
+        import numpy as np
+        val_ious = train_history.get('val_iou_mean', [])
+        train_ious = train_history.get('train_iou_mean', [])
+        
+        if len(val_ious) > 0:
+            best_idx = np.argmax(val_ious)
+            t_prec = train_history['train_precision_mean'][best_idx]
+            t_rec = train_history['train_recall_mean'][best_idx]
+            t_f1 = train_history['train_f1_mean'][best_idx]
+            t_iou = train_history['train_iou_mean'][best_idx]
+            v_prec = train_history['val_precision_mean'][best_idx]
+            v_rec = train_history['val_recall_mean'][best_idx]
+            v_f1 = train_history['val_f1_mean'][best_idx]
+            v_iou = train_history['val_iou_mean'][best_idx]
+        elif len(train_ious) > 0:
+            best_idx = np.argmax(train_ious)
+            t_prec = train_history['train_precision_mean'][best_idx]
+            t_rec = train_history['train_recall_mean'][best_idx]
+            t_f1 = train_history['train_f1_mean'][best_idx]
+            t_iou = train_history['train_iou_mean'][best_idx]
+            v_prec = v_rec = v_f1 = v_iou = 0.0
+        else:
+            t_prec = t_rec = t_f1 = t_iou = 0.0
+            v_prec = v_rec = v_f1 = v_iou = 0.0
+
         summary_data.append({
             'Model': model_name,
-            'Train_Precision': train_history['train_precision_mean'][-1],
-            'Train_Recall': train_history['train_recall_mean'][-1],
-            'Train_F1': train_history['train_f1_mean'][-1],
-            'Train_mIoU': train_history['train_iou_mean'][-1],
-            'Val_Precision': train_history['val_precision_mean'][-1],
-            'Val_Recall': train_history['val_recall_mean'][-1],
-            'Val_F1': train_history['val_f1_mean'][-1],
-            'Val_mIoU': train_history['val_iou_mean'][-1],
+            'Train_Precision': t_prec,
+            'Train_Recall': t_rec,
+            'Train_F1': t_f1,
+            'Train_mIoU': t_iou,
+            'Val_Precision': v_prec,
+            'Val_Recall': v_rec,
+            'Val_F1': v_f1,
+            'Val_mIoU': v_iou,
             'Test_Precision': test_result['precision_mean'],
             'Test_Recall': test_result['recall_mean'],
             'Test_F1': test_result['f1_mean'],

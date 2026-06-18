@@ -86,6 +86,27 @@ SELF_TRAINING = str(os.environ.get('SELF_TRAINING', config.get('SELF_TRAINING', 
 UNLABELED_IMG_PATH = Path(config.get('UNLABELED_IMG_PATH', '')) if config.get('UNLABELED_IMG_PATH', '') else None
 PSEUDO_LABEL_THRESHOLD = float(config.get('PSEUDO_LABEL_THRESHOLD', 0.90))
 IGNORE_INDEX = int(config.get('IGNORE_INDEX', -1)) # this is set to -1 to ensure that the false positives are not taken into account.
+CLASS_WEIGHT_CLIP = config.get('CLASS_WEIGHT_CLIP', None)
+if str(CLASS_WEIGHT_CLIP).lower() in ('none', 'null', ''):
+    CLASS_WEIGHT_CLIP = None
+elif CLASS_WEIGHT_CLIP is not None:
+    CLASS_WEIGHT_CLIP = float(CLASS_WEIGHT_CLIP)
+CLASS_WEIGHT_MODE = config.get('CLASS_WEIGHT_MODE', 'inverse')
+
+def compute_class_weights(train_counts, mode='inverse', clip=None):
+    counts = np.maximum(train_counts.astype(np.float64), 1.0)
+    if mode == 'median':
+        w = np.median(counts) / counts
+    elif mode == 'sqrt':
+        w = 1.0 / np.sqrt(counts)
+    elif mode == 'log':
+        w = 1.0 / np.log1p(counts)
+    else: # inverse
+        w = 1.0 / counts
+    w = w / w.mean()
+    if clip is not None:
+        w = np.clip(w, a_min=None, a_max=clip)
+    return w
 
 # Device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -295,8 +316,7 @@ for model_name in MODEL_NAMES:
     if K_FOLDS == 1:
         # compute class weights from the training split (use full train masks similar to original behavior)
         train_counts = count_pixels(TRAIN_MASK_PATH, train_masks, label_mapping)
-        class_weights = 1.0 / np.maximum(train_counts.astype(np.float64), 1.0)
-        class_weights = class_weights / class_weights.mean()
+        class_weights = compute_class_weights(train_counts, mode=CLASS_WEIGHT_MODE, clip=CLASS_WEIGHT_CLIP)
         class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32, device=device)
 
         # instantiate model
@@ -413,8 +433,7 @@ for model_name in MODEL_NAMES:
             logger.info('Fold %d: %d train, %d val', fold_idx, len(train_imgs_fold), len(val_imgs_fold))
             # per-fold class weights
             train_counts = np.sum([pixel_counts_cache[fname] for fname in train_msks_fold], axis=0)
-            class_weights = 1.0 / np.maximum(train_counts.astype(np.float64), 1.0)
-            class_weights = class_weights / class_weights.mean()
+            class_weights = compute_class_weights(train_counts, mode=CLASS_WEIGHT_MODE, clip=CLASS_WEIGHT_CLIP)
             class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32, device=device)
 
             # instantiate model per fold
@@ -588,8 +607,7 @@ for model_name in MODEL_NAMES:
         # compute class weights on full training masks
         # Reuse cache since train_masks covers all files
         train_counts_full = np.sum([pixel_counts_cache[fname] for fname in train_masks], axis=0)
-        class_weights_full = 1.0 / np.maximum(train_counts_full.astype(np.float64), 1.0)
-        class_weights_full = class_weights_full / class_weights_full.mean()
+        class_weights_full = compute_class_weights(train_counts_full, mode=CLASS_WEIGHT_MODE, clip=CLASS_WEIGHT_CLIP)
         class_weights_tensor_full = torch.tensor(class_weights_full, dtype=torch.float32, device=device)
 
         # instantiate and (optionally) load best-fold weights

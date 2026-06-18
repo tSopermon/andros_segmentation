@@ -12,6 +12,7 @@ The Andros Segmentation project is a reproducible pipeline for multiclass image 
 - **Training Engine:** 
     - Loop with mixed precision (AMP) support.
     - Global random seeding for reproducibility.
+    - Class Weight Clipping (`CLASS_WEIGHT_CLIP`) to stabilize extreme dataset imbalance.
     - Early stopping and checkpointing (best fold/best overall).
     - K-Fold Cross-Validation and Ensemble support.
     - **Teacher-Student Framework**: Active Student model learns from Ground Truth and frozen Teacher-generated Pseudo-Labels with confidence-based filtering (`IGNORE_INDEX`).

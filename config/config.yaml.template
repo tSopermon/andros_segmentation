@@ -39,6 +39,12 @@ LOSS_FUNCTION: "DiceFocal"
 DICE_WEIGHT: 1.0
 FOCAL_WEIGHT: 1.0
 
+# Maximum allowed value for class weights (to prevent minority classes from causing false positives)
+# Setting this limits how much a rare class (like 'Other') is boosted. Set to None to disable.
+CLASS_WEIGHT_CLIP: None
+# Weighting strategy: 'inverse' (1/count), 'median' (median/count), 'sqrt' (1/sqrt(count)), 'log' (1/log(count))
+CLASS_WEIGHT_MODE: "inverse"
+
 # -----------------------------------------------------------------------------
 # Model Architecture & Selection
 # -----------------------------------------------------------------------------
