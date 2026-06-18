@@ -187,17 +187,9 @@ class_labels = sorted(all_classes)
 label_mapping = {original: idx for idx, original in enumerate(class_labels)}
 
 # Train/val split
-if K_FOLDS == 1:
-    if PRE_SPLIT_DATASET:
-        train_images_split = train_images
-        train_masks_split = train_masks
-        # val_images and val_masks are already loaded
-    else:
-        train_images_split, val_images = train_test_split(train_images, test_size=0.2, random_state=42)
-        train_masks_split, val_masks = train_test_split(train_masks, test_size=0.2, random_state=42)
-else:
-    # For stratified k-fold we compute a primary label per image (most common mapped label)
-    primary_labels = []
+# We compute a primary label per image (most common mapped label) for stratified splitting
+primary_labels = []
+if not PRE_SPLIT_DATASET or K_FOLDS > 1:
     for mname in train_masks:
         m = cv2.imread(str(TRAIN_MASK_PATH / mname), cv2.IMREAD_GRAYSCALE)
         mapped = np.zeros_like(m)
@@ -209,6 +201,23 @@ else:
         else:
             primary = int(vals[np.argmax(freqs)])
         primary_labels.append(primary)
+
+if K_FOLDS == 1:
+    if PRE_SPLIT_DATASET:
+        train_images_split = train_images
+        train_masks_split = train_masks
+        # val_images and val_masks are already loaded
+    else:
+        try:
+            train_images_split, val_images, train_masks_split, val_masks = train_test_split(
+                train_images, train_masks, test_size=0.2, random_state=SEED, stratify=primary_labels
+            )
+        except Exception:
+            warnings.warn('Stratified split failed — falling back to random split')
+            train_images_split, val_images, train_masks_split, val_masks = train_test_split(
+                train_images, train_masks, test_size=0.2, random_state=SEED
+            )
+else:
     # If there is only one class present, fallback to simple KFold splitting
     try:
         skf = StratifiedKFold(n_splits=K_FOLDS, shuffle=True, random_state=SEED)
