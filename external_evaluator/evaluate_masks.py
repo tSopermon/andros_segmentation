@@ -102,11 +102,7 @@ class MaskEvaluator:
         
         return metrics
 
-def decode_rgb_mask(rgb_img, num_classes):
-    """
-    Decodes an RGB visualization mask back to a 2D array of class indices 
-    using the project's standard color palette.
-    """
+def get_palette(num_classes):
     custom_colors = [
         (0, 0, 255),      # Water
         (60, 16, 152),    # Woodland
@@ -117,11 +113,18 @@ def decode_rgb_mask(rgb_img, num_classes):
         (255, 255, 0),    # Perm. Cult
         (255, 255, 255),  # Bareland
     ]
-
     if num_classes > len(custom_colors):
         rng = np.random.RandomState(42)
         for _ in range(num_classes - len(custom_colors)):
             custom_colors.append(tuple(rng.randint(0, 256, size=3)))
+    return custom_colors[:num_classes]
+
+def decode_rgb_mask(rgb_img, num_classes):
+    """
+    Decodes an RGB visualization mask back to a 2D array of class indices 
+    using the project's standard color palette.
+    """
+    custom_colors = get_palette(num_classes)
 
     # Start with an array of -1 (IGNORE_INDEX)
     indices = np.full(rgb_img.shape[:2], -1, dtype=np.int32)
@@ -196,21 +199,24 @@ def main():
 
     metrics = evaluator.compute_metrics()
 
-    print("\n" + "="*85)
-    print(f"{'Class':<20} {'Precision':<15} {'Recall':<15} {'F1':<15} {'IoU':<15}")
-    print("-" * 85)
+    palette = get_palette(args.num_classes)
+
+    print("\n" + "="*105)
+    print(f"{'Class':<20} {'RGB Color':<20} {'Precision':<15} {'Recall':<15} {'F1':<15} {'IoU':<15}")
+    print("-" * 105)
     for c in range(args.num_classes):
-        print(f"Class_{c:<14} {metrics['precision'][c]:<15.4f} {metrics['recall'][c]:<15.4f} "
+        color_str = str(palette[c])
+        print(f"Class_{c:<14} {color_str:<20} {metrics['precision'][c]:<15.4f} {metrics['recall'][c]:<15.4f} "
               f"{metrics['f1'][c]:<15.4f} {metrics['iou'][c]:<15.4f}")
     
-    print("-" * 85)
-    print(f"{'MACRO (Mean)':<20} {metrics['precision_mean']:<15.4f} {metrics['recall_mean']:<15.4f} "
+    print("-" * 105)
+    print(f"{'MACRO (Mean)':<20} {'-':<20} {metrics['precision_mean']:<15.4f} {metrics['recall_mean']:<15.4f} "
           f"{metrics['f1_mean']:<15.4f} {metrics['iou_mean']:<15.4f}")
-    print(f"{'WEIGHTED':<20} {metrics['precision_weighted']:<15.4f} {metrics['recall_weighted']:<15.4f} "
+    print(f"{'WEIGHTED':<20} {'-':<20} {metrics['precision_weighted']:<15.4f} {metrics['recall_weighted']:<15.4f} "
           f"{metrics['f1_weighted']:<15.4f} {metrics['iou_weighted']:<15.4f}")
-    print(f"{'MICRO':<20} {metrics['precision_micro']:<15.4f} {metrics['recall_micro']:<15.4f} "
+    print(f"{'MICRO':<20} {'-':<20} {metrics['precision_micro']:<15.4f} {metrics['recall_micro']:<15.4f} "
           f"{metrics['f1_micro']:<15.4f} {metrics['iou_micro']:<15.4f}")
-    print("="*85 + "\n")
+    print("="*105 + "\n")
 
 if __name__ == "__main__":
     main()
