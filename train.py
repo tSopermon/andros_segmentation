@@ -113,6 +113,22 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 configure_logging(level=config.get('LOGGING_LEVEL', 'INFO'))
 logger = logging.getLogger(__name__)
 
+import sys
+def oom_excepthook(exc_type, exc_value, exc_traceback):
+    is_oom = False
+    if issubclass(exc_type, RuntimeError) and "CUDA out of memory" in str(exc_value):
+        is_oom = True
+    elif hasattr(torch.cuda, "OutOfMemoryError") and issubclass(exc_type, getattr(torch.cuda, "OutOfMemoryError")):
+        is_oom = True
+        
+    if is_oom:
+        logger.error("Insufficient VRAM: CUDA out of memory. Please reduce BATCH_SIZE, IMAGE_SIZE, or use a smaller model/backbone. Stopping process gracefully.")
+        sys.exit(1)
+    else:
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+sys.excepthook = oom_excepthook
+
 # ── File logging ──────────────────────────────────────────────────────────────
 _run_ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 _log_file = os.path.join("logs", f"train_{_run_ts}.log")
