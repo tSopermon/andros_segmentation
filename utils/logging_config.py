@@ -1,9 +1,22 @@
 import logging
 import os
-from logging import StreamHandler
 from logging.handlers import RotatingFileHandler
+import sys
 
 _LOG_FORMATTER = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+class TqdmLoggingHandler(logging.Handler):
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            import tqdm
+            tqdm.tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record)
 
 
 def configure_logging(level=logging.INFO):
@@ -20,11 +33,11 @@ def configure_logging(level=logging.INFO):
     if root.handlers:
         root.setLevel(level)
         return
-    handler = StreamHandler()
+    handler = TqdmLoggingHandler()
     handler.setFormatter(_LOG_FORMATTER)
     root.addHandler(handler)
     root.setLevel(level)
-
+    logging.captureWarnings(True)
 
 def add_file_handler(log_path: str, level=logging.DEBUG) -> None:
     """Attach a FileHandler to the root logger so all log records are written

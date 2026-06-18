@@ -139,8 +139,9 @@ class GracefulStop:
             self._cleanup_terminal()
 
     def _setup_terminal(self) -> None:
-        """Place the terminal in raw mode on Unix so single keystrokes are
-        available immediately. No‑op on Windows (msvcrt handles this)."""
+        """Place the terminal in cbreak mode on Unix so single keystrokes are
+        available immediately, without breaking output newline formatting.
+        No‑op on Windows (msvcrt handles this)."""
         if platform.system() == "Windows":
             return
         try:
@@ -149,10 +150,10 @@ class GracefulStop:
 
             fd = sys.stdin.fileno()
             self._old_term_settings = termios.tcgetattr(fd)
-            tty.setraw(fd)
+            tty.setcbreak(fd)
         except (ImportError, OSError, AttributeError, termios.error):
             logger.debug(
-                "Could not set raw terminal mode — will use line‑buffered input.",
+                "Could not set cbreak terminal mode — will use line‑buffered input.",
                 exc_info=True,
             )
             self._old_term_settings = None
