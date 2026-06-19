@@ -186,7 +186,31 @@ def main():
 		model.eval()
 
 		val_transform = get_val_transform(config['IMAGE_SIZE'])
-		colors = get_class_colors(NUM_CLASSES)
+		
+		# Extract colors from config if available, ordered by their grayscale equivalent
+		class_names_config = config.get('CLASS_NAMES', None)
+		class_colors = None
+		if class_names_config is not None:
+			gray_to_rgb = {}
+			for rgb_str, name in class_names_config.items():
+				rgb_str = str(rgb_str).strip()
+				rgb_parts = [p.strip() for p in rgb_str.replace('[', '').replace(']', '').split(',')]
+				if len(rgb_parts) == 3:
+					r, g, b = int(rgb_parts[0]), int(rgb_parts[1]), int(rgb_parts[2])
+					bgr_pixel = np.array([[[b, g, r]]], dtype=np.uint8)
+					gray_val = int(cv2.cvtColor(bgr_pixel, cv2.COLOR_BGR2GRAY)[0, 0])
+					gray_to_rgb[gray_val] = (r, g, b)
+			sorted_grays = sorted(gray_to_rgb.keys())
+			class_colors_list = [gray_to_rgb[g] for g in sorted_grays]
+			if len(class_colors_list) > 0:
+				# Ensure it matches NUM_CLASSES if possible
+				class_colors = np.array(class_colors_list[:NUM_CLASSES], dtype=np.uint8)
+				
+		if class_colors is not None:
+			colors = class_colors
+		else:
+			colors = get_class_colors(NUM_CLASSES)
+			
 		with torch.no_grad():
 			for i, (img_path, subset_name, base_name) in enumerate(tqdm(image_entries)):
 				# Read & preprocess image
@@ -218,12 +242,12 @@ def main():
 				os.makedirs(subset_dir, exist_ok=True)
 				mask_filename = base_name + '_mask.png'
 				save_path = os.path.join(subset_dir, mask_filename)
-				save_mask(pred, save_path, NUM_CLASSES)
+				save_mask(pred, save_path, NUM_CLASSES, class_colors=class_colors)
 				# Also save one preview mask at the model root masks folder for compatibility with tests
 				if (not saved_root_preview):
 					preview_path = os.path.join(model_output_dir, mask_filename)
 					try:
-						save_mask(pred, preview_path, NUM_CLASSES)
+						save_mask(pred, preview_path, NUM_CLASSES, class_colors=class_colors)
 						saved_root_preview = True
 					except Exception:
 						pass

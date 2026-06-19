@@ -53,7 +53,7 @@ def get_class_colors(num_classes):
 
     return np.array(explicit_colors[:num_classes], dtype=np.uint8)
 
-def visualize_predictions(models_dict, test_dataset, test_images, test_masks, TEST_IMG_PATH, TEST_MASK_PATH, label_mapping, device, class_names=None):
+def visualize_predictions(models_dict, test_dataset, test_images, test_masks, TEST_IMG_PATH, TEST_MASK_PATH, label_mapping, device, class_names=None, class_colors=None):
     """
     Visualize and compare predictions from multiple models on random test images.
 
@@ -69,7 +69,10 @@ def visualize_predictions(models_dict, test_dataset, test_images, test_masks, TE
         'outputs/prediction_overlays.png' with visualized predictions.
     """
     num_classes = len(class_names) if class_names is not None else len(label_mapping)
-    colors = get_class_colors(num_classes)
+    if class_colors is not None:
+        colors = class_colors
+    else:
+        colors = get_class_colors(num_classes)
     viz_indices = np.random.choice(len(test_images), size=3, replace=False)
     num_models = len(models_dict)
     fig, axes = plt.subplots(3, num_models + 2, figsize=(4 * (num_models + 2), 12))

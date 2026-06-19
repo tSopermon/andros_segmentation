@@ -150,3 +150,6 @@ teaching_materials/
 
 # User configuration
 config/config.yaml
+
+# ignore mask refiner
+mask_refiner/

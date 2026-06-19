@@ -8,9 +8,14 @@
 DATASET_PATH: "/home/tsopermon/Documents/Thesis Research/Andros Dataset-20251220T140551Z-1-001/Andros Dataset/Andros_Dataset_Balanced"
 # Set to 'true' if the dataset already contains a 'val/' folder. If 'true', K_FOLDS will be forced to 1.
 PRE_SPLIT_DATASET: true
-# When true, also include low-resolution images found in the dataset 'lowres' folder
 INCLUDE_LOWRES: false
-# NUM_CLASSES:
+# When true, also include low-resolution images found in the dataset 'lowres' folder
+# Optional dictionary mapping original mask RGB colors to human-readable class names.
+# The system automatically compresses these RGB colors to match the grayscale masks.
+# Format: "[R, G, B]": "Class Name"
+# CLASS_NAMES:
+#   "[0, 0, 255]": "Water"
+#   "[0, 255, 0]": "Woodland"
 
 # -----------------------------------------------------------------------------
 # Training Hyperparameters

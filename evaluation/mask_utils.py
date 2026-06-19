@@ -29,7 +29,7 @@ def get_test_dataset(config):
     test_transform = get_val_transform(image_size)
     return SegmentationDataset(test_img_dir, test_mask_dir, image_files, mask_files, transform=test_transform)
 
-def save_mask(mask, save_path, num_classes):
+def save_mask(mask, save_path, num_classes, class_colors=None):
     """
     Save a predicted mask as a PNG image with a color palette for visualization.
 
@@ -37,24 +37,27 @@ def save_mask(mask, save_path, num_classes):
         mask (np.ndarray): 2D array of class indices with shape (H, W).
         save_path (str): Path to save the PNG mask.
         num_classes (int): Number of classes for palette generation.
+        class_colors (np.ndarray): Optional array of RGB colors for each class.
 
     Returns:
         None
     """
     mask_img = Image.fromarray(mask.astype(np.uint8), mode='P')
-    # Use specific, human-chosen colors for the classes (index order must match class_names)
-    # Order: 0: Water, 1: Woodland, 2: Arable land, 3: Frygana,
-    # 4: Other, 5: Artificial land, 6: Perm. Cult, 7: Bareland
-    custom_colors = [
-        (0, 0, 255),      # Water
-        (60, 16, 152),    # Woodland
-        (132, 41, 246),   # Arable land
-        (0, 255, 0),      # Frygana
-        (155, 155, 155),  # Other
-        (226, 169, 41),   # Artificial land
-        (255, 255, 0),    # Perm. Cult
-        (255, 255, 255),  # Bareland
-    ]
+    
+    if class_colors is not None:
+        custom_colors = [tuple(c) for c in class_colors]
+    else:
+        # Fallback specific, human-chosen colors for the classes
+        custom_colors = [
+            (0, 0, 255),      # Water
+            (60, 16, 152),    # Woodland
+            (132, 41, 246),   # Arable land
+            (0, 255, 0),      # Frygana
+            (155, 155, 155),  # Other
+            (226, 169, 41),   # Artificial land
+            (255, 255, 0),    # Perm. Cult
+            (255, 255, 255),  # Bareland
+        ]
 
     # Generate additional random distinct colors if num_classes > len(custom_colors)
     if num_classes > len(custom_colors):

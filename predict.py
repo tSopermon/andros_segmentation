@@ -219,7 +219,27 @@ def main():
         ToTensorV2(),
     ])
     
-    colors = get_class_colors(NUM_CLASSES)
+    class_names_config = config.get('CLASS_NAMES', None)
+    class_colors = None
+    if class_names_config is not None:
+        gray_to_rgb = {}
+        for rgb_str, name in class_names_config.items():
+            rgb_str = str(rgb_str).strip()
+            rgb_parts = [p.strip() for p in rgb_str.replace('[', '').replace(']', '').split(',')]
+            if len(rgb_parts) == 3:
+                r, g, b = int(rgb_parts[0]), int(rgb_parts[1]), int(rgb_parts[2])
+                bgr_pixel = np.array([[[b, g, r]]], dtype=np.uint8)
+                gray_val = int(cv2.cvtColor(bgr_pixel, cv2.COLOR_BGR2GRAY)[0, 0])
+                gray_to_rgb[gray_val] = (r, g, b)
+        sorted_grays = sorted(gray_to_rgb.keys())
+        class_colors_list = [gray_to_rgb[g] for g in sorted_grays]
+        if len(class_colors_list) > 0:
+            class_colors = np.array(class_colors_list[:NUM_CLASSES], dtype=np.uint8)
+            
+    if class_colors is not None:
+        colors = class_colors
+    else:
+        colors = get_class_colors(NUM_CLASSES)
 
     # Output directory setup
     os.makedirs(args.output, exist_ok=True)
@@ -269,7 +289,7 @@ def main():
         # Save masks
         mask_filename = f"{base_name}_mask.png"
         mask_save_path = os.path.join(masks_dir, mask_filename)
-        save_mask(pred, mask_save_path, NUM_CLASSES)
+        save_mask(pred, mask_save_path, NUM_CLASSES, class_colors=class_colors)
         logger.info(f"  -> Saved semantic mask: {mask_filename}")
         
         # Save overlays

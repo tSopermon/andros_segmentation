@@ -86,7 +86,50 @@ class_labels = sorted(all_classes)
 label_mapping = {original: idx for idx, original in enumerate(class_labels)}
 
 # Human-readable class names (index -> name)
-if NUM_CLASSES == 8:
+class_names_config = config.get('CLASS_NAMES', None)
+class_colors = None
+if class_names_config is not None:
+    import numpy as np
+    import cv2
+    
+    gray_to_name = {}
+    gray_to_rgb = {}
+    for rgb_str, name in class_names_config.items():
+        # Parse the string (e.g. "[255, 0, 0]" or "255, 0, 0" or just a number)
+        rgb_str = str(rgb_str).strip()
+        rgb_parts = [p.strip() for p in rgb_str.replace('[', '').replace(']', '').split(',')]
+        
+        if len(rgb_parts) == 3:
+            # We have an RGB tuple. Convert to OpenCV grayscale value.
+            r, g, b = int(rgb_parts[0]), int(rgb_parts[1]), int(rgb_parts[2])
+            bgr_pixel = np.array([[[b, g, r]]], dtype=np.uint8)
+            gray_val = int(cv2.cvtColor(bgr_pixel, cv2.COLOR_BGR2GRAY)[0, 0])
+            gray_to_name[gray_val] = name
+            gray_to_rgb[gray_val] = (r, g, b)
+        elif len(rgb_parts) == 1 and rgb_parts[0].isdigit():
+            # Fallback in case they still use grayscale int directly
+            gray_to_name[int(rgb_parts[0])] = name
+            
+    class_names = []
+    class_colors_list = []
+    for orig_val in class_labels:
+        if gray_to_name:
+            # OpenCV rounding vs PIL truncation can cause a difference of 1.
+            # We match to the nearest grayscale value specified in the config.
+            nearest_gray = min(gray_to_name.keys(), key=lambda k: abs(k - orig_val))
+            # Only match if within a reasonable delta (e.g., <= 2)
+            if abs(nearest_gray - orig_val) <= 2:
+                name = gray_to_name[nearest_gray]
+                class_names.append(name)
+                if nearest_gray in gray_to_rgb:
+                    class_colors_list.append(gray_to_rgb[nearest_gray])
+                continue
+        class_names.append(f'Class_{orig_val}')
+        
+    if len(class_colors_list) == len(class_names):
+        class_colors = np.array(class_colors_list, dtype=np.uint8)
+
+elif NUM_CLASSES == 8:
     # Classic Andros Dataset
     class_names = [
         'Water',
@@ -217,7 +260,7 @@ for model_name, model in models_dict.items():
 all_targets = np.concatenate(all_targets_list, axis=0)
 
 # Visualizations
-visualize_predictions(models_dict, test_dataset, test_images, test_masks, TEST_IMG_PATH, TEST_MASK_PATH, label_mapping, device, class_names=class_names)
+visualize_predictions(models_dict, test_dataset, test_images, test_masks, TEST_IMG_PATH, TEST_MASK_PATH, label_mapping, device, class_names=class_names, class_colors=class_colors)
 
 # --- Generate Plots ---
 os.makedirs("outputs", exist_ok=True)
