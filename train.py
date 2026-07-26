@@ -49,7 +49,26 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = False      # must be False with deterministic=True
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+try:
+    torch.use_deterministic_algorithms(True, warn_only=True)
+except TypeError:
+    try:
+        torch.use_deterministic_algorithms(True)
+    except Exception:
+        pass
+
+_torch_generator = torch.Generator()
+_torch_generator.manual_seed(SEED)
+
+
+def _seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % (2 ** 32)
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
 config = load_config(args.config)
 DATASET_PATH = Path(config['DATASET_PATH'])
 TRAIN_IMG_PATH = DATASET_PATH / 'train' / ('Image' if (DATASET_PATH / 'train' / 'Image').exists() else 'image')
@@ -272,13 +291,13 @@ if K_FOLDS == 1:
                                           unl_transform_weak=val_transform,
                                           unl_transform_strong=strong_unl_transform,
                                           label_mapping=label_mapping)
-        train_loader = DataLoader(train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
     else:
         train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images_split, train_masks_split, train_transform, label_mapping)
-        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
         
     val_dataset = SegmentationDataset(val_img_path, val_mask_path, val_images, val_masks, val_transform, label_mapping)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
 
 BACKBONE = config.get('BACKBONE', 'resnet101')
 
@@ -312,13 +331,13 @@ def make_loaders(train_imgs, train_msks, val_imgs, val_msks):
                                           unl_transform_weak=val_transform,
                                           unl_transform_strong=strong_unl_transform,
                                           label_mapping=label_mapping)
-        train_loader = DataLoader(train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
     else:
         train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_imgs, train_msks, train_transform, label_mapping)
-        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
         
     val_dataset = SegmentationDataset(val_img_path, val_mask_path, val_imgs, val_msks, val_transform, label_mapping)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
     return train_loader, val_loader
 
 # Training loop
@@ -698,10 +717,10 @@ for model_name in MODEL_NAMES:
                                               unl_transform_weak=val_transform,
                                               unl_transform_strong=strong_unl_transform,
                                               label_mapping=label_mapping)
-            full_train_loader = DataLoader(full_train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+            full_train_loader = DataLoader(full_train_dataset, batch_size=eff_batch, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
         else:
             full_train_dataset = SegmentationDataset(TRAIN_IMG_PATH, TRAIN_MASK_PATH, train_images, train_masks, train_transform, label_mapping)
-            full_train_loader = DataLoader(full_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+            full_train_loader = DataLoader(full_train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
 
         for epoch in range(MAX_EPOCHS):
             # Check if user requested graceful stop

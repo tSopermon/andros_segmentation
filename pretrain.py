@@ -35,12 +35,30 @@ args = parser.parse_args()
 # Load config
 SEED = 42
 random.seed(SEED)
+np.random.seed(SEED)
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = False      # must be False with deterministic=True
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+try:
+    torch.use_deterministic_algorithms(True, warn_only=True)
+except TypeError:
+    try:
+        torch.use_deterministic_algorithms(True)
+    except Exception:
+        pass
+
+_torch_generator = torch.Generator()
+_torch_generator.manual_seed(SEED)
+
+
+def _seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % (2 ** 32)
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
     
 config = load_config(args.config)
 DATASET_PATH = Path(config['DATASET_PATH'])
@@ -82,7 +100,7 @@ train_images = sorted([f for f in os.listdir(TRAIN_IMG_PATH) if f.lower().endswi
 # Because albumentations handles `image=image` just fine, we can reuse train_transform
 train_transform = get_train_transform(IMAGE_SIZE, USE_AUGMENTATION)
 pretrain_dataset = PretrainDataset(TRAIN_IMG_PATH, train_images, transform=train_transform)
-pretrain_loader = DataLoader(pretrain_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True)
+pretrain_loader = DataLoader(pretrain_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, drop_last=True, pin_memory=True, worker_init_fn=_seed_worker, generator=_torch_generator)
 
 # If running originals or all, enable original registrations in model_zoo via env vars.
 old_env = {k: os.environ.get(k) for k in ('USE_UNET_ORIGINAL', 'USE_DEEPLABV1_ORIGINAL', 'USE_DEEPLABV2_ORIGINAL', 'USE_DEEPLABV3_ORIGINAL', 'USE_MAXVIT_UNET')}

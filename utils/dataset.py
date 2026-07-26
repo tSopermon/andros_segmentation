@@ -67,6 +67,7 @@ class DualStreamDataset(Dataset):
         # If no unlabeled files provided (e.g. evaluating), we set it to 1 to avoid /0 errors, 
         # but it shouldn't be called without unlabeled data anway.
         self.unlabeled_len = max(1, len(self.unlabeled_image_files))
+        self._rng = np.random.RandomState(np.random.randint(0, 2 ** 31))
 
     def __len__(self):
         return self.labeled_len
@@ -105,7 +106,7 @@ class DualStreamDataset(Dataset):
             u_image_clean = l_image.clone() if isinstance(l_image, torch.Tensor) else l_image.copy()
             u_image_aug = l_image.clone() if isinstance(l_image, torch.Tensor) else l_image.copy()
         else:
-            u_idx = np.random.randint(0, self.unlabeled_len)
+            u_idx = self._rng.randint(0, self.unlabeled_len)
             u_img_name = self.unlabeled_image_files[u_idx]
             u_image = cv2.imread(str(self.unlabeled_image_dir / u_img_name))
             u_image = cv2.cvtColor(u_image, cv2.COLOR_BGR2RGB)
