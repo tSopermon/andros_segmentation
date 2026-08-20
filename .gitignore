@@ -156,4 +156,6 @@ mask_refiner/
 
 dinov3/
 
+.dinov3/
+
 .kilo
