@@ -153,3 +153,7 @@ config/config.yaml
 
 # ignore mask refiner
 mask_refiner/
+
+dinov3/
+
+.kilo
