@@ -79,11 +79,19 @@ def get_models(num_classes: int, backbone: str = 'resnet101', encoder_weights: s
                 in_channels=3,
                 classes=num_classes,
             )
+        if should_include('Segformer'):
+            models_dict['Segformer'] = smp.Segformer(
+                encoder_name=backbone,
+                encoder_weights=encoder_weights,
+                in_channels=3,
+                classes=num_classes,
+            )
     else:
         if should_include('DeepLabV3'): models_dict['DeepLabV3'] = _DummyModel(in_channels=3, classes=num_classes)
         if should_include('DeepLabV3Plus'): models_dict['DeepLabV3Plus'] = _DummyModel(in_channels=3, classes=num_classes)
         if should_include('UNet'): models_dict['UNet'] = _DummyModel(in_channels=3, classes=num_classes)
         if should_include('UNetPlusPlus'): models_dict['UNetPlusPlus'] = _DummyModel(in_channels=3, classes=num_classes)
+        if should_include('Segformer'): models_dict['Segformer'] = _DummyModel(in_channels=3, classes=num_classes)
 
     # Always register the original-paper U-Net implementation
     if should_include('UNet_original'):

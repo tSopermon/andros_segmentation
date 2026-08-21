@@ -26,6 +26,7 @@ MODEL_CHECKPOINTS = {
 	'UNet': 'UNet_best.pth',
 	'UNetPlusPlus': 'UNetPlusPlus_best.pth',
 	'UNet_original': 'UNet_original_best.pth',
+	'Segformer': 'Segformer_best.pth',
 }
 
 from pathlib import Path

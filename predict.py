@@ -88,7 +88,7 @@ def sliding_window_inference(model, image_tensor, num_classes, patch_size=512, o
         for x in x_coords:
             patch = padded_image[:, :, y:y+patch_size, x:x+patch_size]
             with torch.no_grad():
-                with torch.amp.autocast('cuda' if device.type == 'cuda' else 'cpu'):
+                with torch.autocast('cuda' if device.type == 'cuda' else 'cpu'):
                     logits = model(patch)
                 # If model returns a dict (like some torchvision models)
                 if isinstance(logits, dict):

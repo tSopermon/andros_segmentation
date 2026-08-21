@@ -1,7 +1,7 @@
 from typing import Dict, List
 
 
-STANDARD_MODELS = ['DeepLabV3', 'DeepLabV3Plus', 'UNet', 'UNetPlusPlus']
+STANDARD_MODELS = ['DeepLabV3', 'DeepLabV3Plus', 'UNet', 'UNetPlusPlus', 'Segformer']
 
 
 def get_selected_standard_models(config: Dict) -> List[str]:
