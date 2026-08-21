@@ -89,3 +89,34 @@ python predict.py --input /path/to/test_images_folder/ --model UNetPlusPlus --ch
 ```
 
 The script will load your trained weights and save the resulting predictions with color overlays in the `predictions/` directory.
+
+## 7. Grad-CAM / XAI Visualization
+
+Generate Class Activation Maps (CAMs) for your trained model on the test set using the [`pytorch-grad-cam`](https://github.com/jacobgil/pytorch-grad-cam) library:
+
+```bash
+# Full test set, all methods (GradCAM, SegEigenCAM, LayerCAM, EigenCAM, HiResCAM)
+python gradcam.py --config config/config.yaml
+
+# Restrict to one model and the first N images (fast sanity run)
+python gradcam.py --config config/config.yaml --models UNetPlusPlus --limit 2
+
+# Restrict to specific methods
+python gradcam.py --config config/config.yaml --methods GradCAM,EigenCAM --limit 5
+
+# Debug: resolve and print each model's target layer, then exit
+python gradcam.py --config config/config.yaml --print-target-layers
+```
+
+Outputs are written to `outputs/gradcam/<ModelName>__<backbone>/<method>/test/`:
+
+- `<base>__<ClassName>__raw.png` — normalized grayscale heatmap (0–255).
+- `<base>__<ClassName>__overlay.png` — JET-colormap heatmap composited on the image.
+- `EigenCAM` is class-agnostic and emits one map per image (`<base>__raw.png`); the
+  other methods are class-discriminative and emit one map per class present in the
+  ground-truth mask.
+- A shared `outputs/gradcam/config_summary.json` records the training configuration
+  and resolved target layers for reproducibility.
+
+See `scientific_docs/GRADCAM_DOCUMENTATION.md` for the underlying theory and
+interpretation guidance.

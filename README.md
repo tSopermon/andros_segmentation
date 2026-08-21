@@ -95,6 +95,20 @@ python generate_masks.py --config config/config.yaml
 ```
 - Generates segmentation masks for test images in `outputs/<ModelName>/masks/`.
 
+### Grad-CAM / XAI Visualization
+```bash
+python gradcam.py --config config/config.yaml --models UNetPlusPlus --limit 2
+```
+- Generates Class Activation Maps (CAMs) for test images using `pytorch-grad-cam`
+  (`GradCAM`, `SegEigenCAM`, `LayerCAM`, `EigenCAM`, `HiResCAM`).
+- Saves raw grayscale heatmaps and JET overlays under `outputs/gradcam/<ModelName>__<backbone>/`.
+- Class-discriminative methods emit one CAM per class present in the ground-truth
+  mask; `EigenCAM` is class-agnostic and emits one CAM per image.
+- `--print-target-layers` resolves and prints each model's target layer, then exits.
+- `--limit` only process the first N test images.
+- The saved raw heatmaps enable later quantitative XAI metrics (ROAD / ARCC).
+- Requires `grad-cam` (in `requirements.txt`).
+
 ### Single Image / Folder Prediction
 ```bash
 python predict.py --input /path/to/image_or_folder --model UNetPlusPlus --patch-size 512 --overlap 0.5
