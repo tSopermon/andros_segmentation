@@ -58,6 +58,20 @@ python train.py --config config/config.yaml
 3.  The `DataLoader` automatically adjusts: if your `BATCH_SIZE` is 8, the system will load 4 labeled and 4 unlabeled pairs per step to maintain memory stability.
 4.  Pseudo-labels are generated on-the-fly on the GPU.
 
+### 3. Dataset Layout and Per-Epoch Loading Behavior (Clarification)
+
+**Unlabeled data requires no partitioning.** The self-training feature expects a **single flat directory** of images — no `train/`/`test/`/`val/` sub-splits are needed or used. `UNLABELED_IMG_PATH` is scanned once with `os.listdir()` and every image inside becomes the unlabeled pool. Only the **labeled** dataset is split (via `PRE_SPLIT_DATASET`, an 80/20 stratified split, or k-fold); the unlabeled pool is never partitioned and is exploited in full across the training run.
+
+**Per optimization step** — `DualStreamDataset` splits the configured `BATCH_SIZE` in half: with `BATCH_SIZE: 8`, each step loads **4 labeled pairs** (image + GT mask) and **4 unlabeled images**, each rendered in two views (clean/weak for the Teacher, strong for the Student). The Student performs a single forward pass over 8 images (4 GT + 4 strongly-augmented unlabeled), while the Teacher predicts pseudo-labels on the 4 clean views.
+
+**Per epoch** — the epoch length is defined by the labeled split only:
+- Every labeled training image is seen **exactly once** per epoch.
+- Unlabeled images are sampled **randomly with replacement**, about `N_labeled` draws per epoch (independent of `BATCH_SIZE`). If the pool is larger than the labeled set, a single epoch covers only part of it (e.g., a 1,000-image pool with 200 labeled images ≈ 200 draws/epoch, with roughly 82% of the pool untouched each epoch).
+
+**Across the whole run** — because sampling is with replacement, the full pool is exploited over many epochs; the expected number of epochs until every pool image is seen at least once is approximately `(N_unlabeled / N_labeled) × ln(N_unlabeled)` (coupon-collector problem). Repeated draws are not wasted: each redraw applies fresh weak/strong augmentations, so the Teacher produces slightly different pseudo-labels and the Student sees a different strong view every time.
+
+**Practical levers** — to use more unlabeled data: increase `MAX_EPOCHS` (the only setting that raises total draws; `BATCH_SIZE` changes per-step composition, not the per-epoch draw count), or lower `PSEUDO_LABEL_THRESHOLD` to accept more pseudo-labeled pixels per image.
+
 ## Best Practices
 
 ### The "Senior Developer" Principle
