@@ -219,3 +219,28 @@ def freeze_encoder_if_requested(model, freeze: bool):
         logger.info("Froze encoder weights.")
     else:
         logger.warning("Could not identify encoder to freeze for this model.")
+
+def enable_gradient_checkpointing(model):
+    """Enable gradient checkpointing on supported encoder backbones (e.g. timm MaxViT).
+
+    Recomputation trades compute for activation memory during backward. Skipped when the
+    encoder is frozen, since recomputing frozen activations would only waste compute.
+    """
+    encoder = getattr(model, 'encoder', None)
+    if encoder is None:
+        encoder = getattr(model, 'backbone', None)
+    if encoder is None:
+        logger.info("Gradient checkpointing skipped: no encoder found for this model.")
+        return False
+    if not any(p.requires_grad for p in encoder.parameters()):
+        logger.info("Gradient checkpointing skipped: encoder is frozen.")
+        return False
+
+    target = getattr(encoder, 'model', encoder)
+    if hasattr(target, 'set_grad_checkpointing'):
+        target.set_grad_checkpointing(True)
+        logger.info("Enabled gradient checkpointing on %s.", type(target).__name__)
+        return True
+
+    logger.info("Gradient checkpointing skipped: %s does not support it.", type(target).__name__)
+    return False

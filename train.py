@@ -21,7 +21,7 @@ from utils.dataset import SegmentationDataset, count_pixels, get_pixel_counts_ca
 from utils.transforms import get_train_transform, get_val_transform, get_strong_self_training_transform
 from models.model_zoo import get_models
 from training.metrics import SegmentationMetrics
-from training.train_utils import train_epoch, validate, apply_transfer_learning, freeze_encoder_if_requested
+from training.train_utils import train_epoch, validate, apply_transfer_learning, freeze_encoder_if_requested, enable_gradient_checkpointing
 from training.losses import DiceLoss, DiceBCELoss, FocalLoss, DiceFocalLoss
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
@@ -353,6 +353,8 @@ for model_name in MODEL_NAMES:
             apply_transfer_learning(model, ckpt_path, device)
             freeze_encoder_if_requested(model, FREEZE_ENCODER)
 
+        enable_gradient_checkpointing(model)
+
         optimizer_type = config.get('OPTIMIZER', 'AdamW')
         if optimizer_type.lower() == 'adamw':
             optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
@@ -477,6 +479,8 @@ for model_name in MODEL_NAMES:
                     custom_ckpt_path = os.path.join(PRETRAINED_CHECKPOINT_DIR, f"{model_name}{pretrained_suffix}")
                     apply_transfer_learning(model, custom_ckpt_path, device)
                 freeze_encoder_if_requested(model, FREEZE_ENCODER)
+
+            enable_gradient_checkpointing(model)
 
             optimizer_type = config.get('OPTIMIZER', 'AdamW')
             if optimizer_type.lower() == 'adamw':
@@ -648,6 +652,8 @@ for model_name in MODEL_NAMES:
 
         if TRANSFER_LEARNING:
             freeze_encoder_if_requested(model, FREEZE_ENCODER)
+
+        enable_gradient_checkpointing(model)
 
         optimizer_type = config.get('OPTIMIZER', 'AdamW')
         if optimizer_type.lower() == 'adamw':
